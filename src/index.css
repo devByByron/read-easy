@@ -6,47 +6,47 @@
 All colors MUST be HSL.
 */
 
-/* ReadEasy Design System - GitHub-inspired, accessibility-first */
+/* ReadEasy Design System - Professional, accessibility-first */
 
 @layer base {
   :root {
-    /* GitHub-inspired Base Colors - High Contrast for Accessibility */
-    --background: 255 255 255; /* Pure white */
-    --foreground: 13 17 23; /* GitHub's dark text */
+    /* Professional & Clean Color Palette - HSL Format */
+    --background: 0 0% 100%; /* Pure white */
+    --foreground: 222 84% 5%; /* Deep charcoal */
     
-    --card: 255 255 255;
-    --card-foreground: 13 17 23;
+    --card: 0 0% 100%;
+    --card-foreground: 222 84% 5%;
     
-    --popover: 255 255 255;
-    --popover-foreground: 13 17 23;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 84% 5%;
     
-    /* Primary - GitHub Blue with high contrast */
-    --primary: 9 105 218; /* GitHub blue */
-    --primary-foreground: 255 255 255;
-    --primary-hover: 0 92 197; /* Darker blue for hover */
+    /* Primary - Professional Blue */
+    --primary: 221 83% 53%; /* Clean blue */
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 221 83% 45%; /* Darker blue for hover */
     
-    /* Secondary - Clean GitHub Gray */
-    --secondary: 246 248 250; /* GitHub's light gray */
-    --secondary-foreground: 13 17 23;
-    --secondary-hover: 235 240 246;
+    /* Secondary - Subtle Gray */
+    --secondary: 210 40% 98%; /* Very light gray */
+    --secondary-foreground: 222 84% 5%;
+    --secondary-hover: 210 40% 94%;
     
-    /* Muted - Subtle backgrounds */
-    --muted: 246 248 250;
-    --muted-foreground: 101 109 118; /* GitHub's muted text */
+    /* Muted - Professional neutrals */
+    --muted: 210 40% 98%;
+    --muted-foreground: 215 16% 47%; /* Balanced gray text */
     
     /* Accent - Success Green */
-    --accent: 31 136 61; /* GitHub green */
-    --accent-foreground: 255 255 255;
-    --accent-hover: 26 127 55;
+    --accent: 142 71% 45%; /* Professional green */
+    --accent-foreground: 0 0% 98%;
+    --accent-hover: 142 71% 39%;
     
-    /* Destructive - GitHub Red */
-    --destructive: 218 54 51;
-    --destructive-foreground: 255 255 255;
+    /* Destructive - Clean Red */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
     
     /* Borders and inputs */
-    --border: 208 215 222; /* GitHub's border color */
-    --input: 208 215 222;
-    --ring: 9 105 218; /* Focus ring matches primary */
+    --border: 214 32% 91%; /* Soft border */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%; /* Focus ring matches primary */
     
     /* Custom professional design tokens */
     --hero-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
@@ -156,8 +156,8 @@ All colors MUST be HSL.
   /* High contrast mode support */
   @media (prefers-contrast: high) {
     :root {
-      --border: 0 0 0;
-      --ring: 0 0 0;
+      --border: 0 0% 0%;
+      --ring: 0 0% 0%;
     }
   }
   
