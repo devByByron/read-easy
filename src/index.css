@@ -48,87 +48,87 @@ All colors MUST be HSL.
     --input: 208 215 222;
     --ring: 9 105 218; /* Focus ring matches primary */
     
-    /* Custom ReadEasy tokens */
+    /* Custom professional design tokens */
     --hero-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
     --subtle-gradient: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.12);
-    --shadow-primary: 0 4px 20px hsla(var(--primary), 0.25);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.1);
+    --shadow-primary: 0 4px 20px hsla(var(--primary), 0.15);
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     
-    --radius: 8px; /* GitHub's border radius */
+    --radius: 8px;
     
-    /* Sidebar tokens remain for compatibility */
-    --sidebar-background: 255 255 255;
-    --sidebar-foreground: 13 17 23;
-    --sidebar-primary: 9 105 218;
-    --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 246 248 250;
-    --sidebar-accent-foreground: 13 17 23;
-    --sidebar-border: 208 215 222;
-    --sidebar-ring: 9 105 218;
+    /* Sidebar tokens */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 84% 5%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 210 40% 98%;
+    --sidebar-accent-foreground: 222 84% 5%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 221 83% 53%;
   }
 
   .dark {
-    /* Dark mode - GitHub's dark theme colors */
-    --background: 13 17 23; /* GitHub dark background */
-    --foreground: 240 246 252; /* GitHub dark text */
+    /* Dark mode - Professional dark palette */
+    --background: 222 84% 5%; /* Dark charcoal */
+    --foreground: 210 40% 98%; /* Light text */
     
-    --card: 22 27 34; /* GitHub dark card */
-    --card-foreground: 240 246 252;
+    --card: 222 47% 11%; /* Dark card */
+    --card-foreground: 210 40% 98%;
     
-    --popover: 22 27 34;
-    --popover-foreground: 240 246 252;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
     
-    /* Primary stays the same for consistency */
-    --primary: 88 166 255; /* GitHub dark blue */
-    --primary-foreground: 13 17 23;
-    --primary-hover: 116 183 255;
+    /* Primary - Adjusted for dark mode */
+    --primary: 217 91% 60%; /* Lighter blue for dark */
+    --primary-foreground: 222 84% 5%;
+    --primary-hover: 217 91% 70%;
     
-    /* Secondary - Dark GitHub Gray */
-    --secondary: 33 38 45; /* GitHub dark secondary */
-    --secondary-foreground: 240 246 252;
-    --secondary-hover: 40 46 54;
+    /* Secondary - Dark mode gray */
+    --secondary: 217 32% 17%; /* Dark secondary */
+    --secondary-foreground: 210 40% 98%;
+    --secondary-hover: 217 32% 23%;
     
     /* Muted */
-    --muted: 33 38 45;
-    --muted-foreground: 139 148 158; /* GitHub dark muted */
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20% 65%; /* Muted text in dark */
     
-    /* Accent - Success Green (adjusted for dark) */
-    --accent: 63 185 80; /* GitHub dark green */
-    --accent-foreground: 13 17 23;
-    --accent-hover: 82 196 94;
+    /* Accent - Adjusted green for dark */
+    --accent: 142 76% 36%; /* Dark mode green */
+    --accent-foreground: 210 40% 98%;
+    --accent-hover: 142 76% 46%;
     
     /* Destructive */
-    --destructive: 248 81 73; /* GitHub dark red */
-    --destructive-foreground: 240 246 252;
+    --destructive: 0 62% 30%; /* Dark mode red */
+    --destructive-foreground: 210 40% 98%;
     
     /* Borders */
-    --border: 48 54 61; /* GitHub dark border */
-    --input: 48 54 61;
-    --ring: 88 166 255;
+    --border: 217 32% 17%; /* Dark border */
+    --input: 217 32% 17%;
+    --ring: 217 91% 60%;
     
     /* Custom dark tokens */
     --hero-gradient: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
     --subtle-gradient: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.4);
-    --shadow-primary: 0 4px 20px hsla(var(--primary), 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.5);
+    --shadow-primary: 0 4px 20px hsla(var(--primary), 0.3);
     
     /* Dark sidebar */
-    --sidebar-background: 13 17 23;
-    --sidebar-foreground: 240 246 252;
-    --sidebar-primary: 88 166 255;
-    --sidebar-primary-foreground: 13 17 23;
-    --sidebar-accent: 33 38 45;
-    --sidebar-accent-foreground: 240 246 252;
-    --sidebar-border: 48 54 61;
-    --sidebar-ring: 88 166 255;
+    --sidebar-background: 222 84% 5%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 222 84% 5%;
+    --sidebar-accent: 217 32% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 32% 17%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
