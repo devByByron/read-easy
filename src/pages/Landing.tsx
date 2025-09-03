@@ -44,7 +44,7 @@ const Landing = () => {
         
         <main className="flex-1">
           <Hero />
-          <FileUpload onFileProcessed={handleFileProcessed} />
+          <SimpleFileUpload onFileProcessed={handleFileProcessed} />
           
           {extractedText && (
             <div id="text-processor">
