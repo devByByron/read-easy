@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ThemeProvider } from "next-themes";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
+// Fixed component import reference
 import SimpleFileUpload from "@/components/SimpleFileUpload";
 import TextProcessor from "@/components/TextProcessor";
 import { Card } from "@/components/ui/card";
