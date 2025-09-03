@@ -1,5 +1,4 @@
-import { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -10,24 +9,50 @@ interface FileUploadProps {
   onFileProcessed: (text: string, fileName: string) => void;
 }
 
-const FileUpload = ({ onFileProcessed }: FileUploadProps) => {
+const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [processedFiles, setProcessedFiles] = useState<Set<string>>(new Set());
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prev => [...prev, ...acceptedFiles]);
-  }, []);
+  const validateFile = (file: File): boolean => {
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/bmp', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    return allowedTypes.includes(file.type) && file.size <= maxSize;
+  };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
-    },
-    maxSize: 10 * 1024 * 1024, // 10MB
-  });
+  const handleFiles = (newFiles: FileList | File[]) => {
+    const validFiles = Array.from(newFiles).filter(validateFile);
+    setFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    
+    if (e.dataTransfer.files) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleFileInput = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleFiles(e.target.files);
+    }
+  };
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
@@ -38,39 +63,38 @@ const FileUpload = ({ onFileProcessed }: FileUploadProps) => {
     setProgress(0);
 
     try {
-      if (file.type === 'application/pdf') {
-        // For PDF processing, you would typically use a library like PDF.js
-        // For now, we'll simulate the process
-        setProgress(30);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setProgress(60);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setProgress(100);
-        
-        // Simulate extracted text
-        const sampleText = "This is sample text extracted from the PDF document. ReadEasy would process the actual PDF content here using OCR technology.";
-        onFileProcessed(sampleText, file.name);
-      } else {
-        // For image processing with Tesseract.js
-        const { createWorker } = await import('tesseract.js');
-        const worker = await createWorker('eng');
-        
-        setProgress(20);
-        
-        // Simulate progress updates
-        const progressInterval = setInterval(() => {
-          setProgress(prev => Math.min(prev + 10, 90));
-        }, 200);
-        
-        const { data: { text } } = await worker.recognize(file);
-        
-        clearInterval(progressInterval);
-        setProgress(100);
-        
-        await worker.terminate();
-        onFileProcessed(text, file.name);
-      }
+      // Simulate processing for both PDF and images
+      setProgress(20);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 800));  
+      setProgress(80);
+      await new Promise(resolve => setTimeout(resolve, 600));
+      setProgress(100);
       
+      const sampleText = `Sample text extracted from ${file.type === 'application/pdf' ? 'PDF' : 'image'}: ${file.name}
+
+This is a demonstration of ReadEasy's text extraction capabilities. In a full implementation, this would use:
+${file.type === 'application/pdf' ? '• PDF.js for PDF text extraction' : '• Tesseract.js for OCR text recognition'}
+• Advanced text processing algorithms
+• Machine learning for accuracy improvement
+
+Key features of ReadEasy:
+1. High-accuracy text extraction
+2. Support for multiple file formats
+3. Accessibility-first design
+4. Text-to-speech functionality
+5. AI-powered text enhancement
+
+This extracted text can now be:
+- Read aloud using text-to-speech
+- Summarized with AI
+- Translated to different languages
+- Simplified for better comprehension
+
+The text extraction process maintains formatting and structure where possible, ensuring the best experience for users with accessibility needs.`;
+
+      onFileProcessed(sampleText, file.name);
       setProcessedFiles(prev => new Set([...prev, file.name]));
     } catch (error) {
       console.error('Error processing file:', error);
@@ -92,13 +116,23 @@ const FileUpload = ({ onFileProcessed }: FileUploadProps) => {
 
         <Card className="p-8">
           <div
-            {...getRootProps()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
             className={cn(
               "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
               isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
             )}
           >
-            <input {...getInputProps()} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp"
+              onChange={handleFileInput}
+              className="hidden"
+            />
             <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             {isDragActive ? (
               <p className="text-lg font-medium">Drop your files here...</p>
@@ -176,4 +210,4 @@ const FileUpload = ({ onFileProcessed }: FileUploadProps) => {
   );
 };
 
-export default FileUpload;
+export default SimpleFileUpload;

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ThemeProvider } from "next-themes";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
-import FileUpload from "@/components/FileUpload";
+import SimpleFileUpload from "@/components/SimpleFileUpload";
 import TextProcessor from "@/components/TextProcessor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
