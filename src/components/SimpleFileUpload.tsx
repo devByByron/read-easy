@@ -63,41 +63,68 @@ const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
     setProgress(0);
 
     try {
-      // Simulate processing for both PDF and images
-      setProgress(20);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setProgress(50);
-      await new Promise(resolve => setTimeout(resolve, 800));  
-      setProgress(80);
-      await new Promise(resolve => setTimeout(resolve, 600));
+      let extractedText = '';
+      
+      if (file.type === 'application/pdf') {
+        // Extract text from PDF using PDF.js
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        
+        setProgress(20);
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        setProgress(40);
+        
+        let fullText = '';
+        const numPages = pdf.numPages;
+        
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          fullText += pageText + '\n';
+          
+          // Update progress for each page
+          setProgress(40 + (pageNum / numPages) * 50);
+        }
+        
+        extractedText = fullText.trim();
+      } else {
+        // Extract text from image using Tesseract.js
+        const { createWorker } = await import('tesseract.js');
+        const worker = await createWorker('eng');
+        
+        setProgress(20);
+        
+        // Simulate progress updates during OCR
+        const progressInterval = setInterval(() => {
+          setProgress(prev => Math.min(prev + 5, 90));
+        }, 300);
+        
+        const { data: { text } } = await worker.recognize(file);
+        
+        clearInterval(progressInterval);
+        await worker.terminate();
+        
+        extractedText = text.trim();
+      }
+      
       setProgress(100);
       
-      const sampleText = `Sample text extracted from ${file.type === 'application/pdf' ? 'PDF' : 'image'}: ${file.name}
-
-This is a demonstration of ReadEasy's text extraction capabilities. In a full implementation, this would use:
-${file.type === 'application/pdf' ? '• PDF.js for PDF text extraction' : '• Tesseract.js for OCR text recognition'}
-• Advanced text processing algorithms
-• Machine learning for accuracy improvement
-
-Key features of ReadEasy:
-1. High-accuracy text extraction
-2. Support for multiple file formats
-3. Accessibility-first design
-4. Text-to-speech functionality
-5. AI-powered text enhancement
-
-This extracted text can now be:
-- Read aloud using text-to-speech
-- Summarized with AI
-- Translated to different languages
-- Simplified for better comprehension
-
-The text extraction process maintains formatting and structure where possible, ensuring the best experience for users with accessibility needs.`;
-
-      onFileProcessed(sampleText, file.name);
+      if (!extractedText) {
+        extractedText = `No text could be extracted from ${file.name}. Please ensure the file contains readable text.`;
+      }
+      
+      onFileProcessed(extractedText, file.name);
       setProcessedFiles(prev => new Set([...prev, file.name]));
     } catch (error) {
       console.error('Error processing file:', error);
+      const errorText = `Error extracting text from ${file.name}. Please try with a different file or check if the file is not corrupted.`;
+      onFileProcessed(errorText, file.name);
     } finally {
       setProcessing(false);
       setProgress(0);
