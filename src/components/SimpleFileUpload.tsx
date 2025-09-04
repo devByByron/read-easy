@@ -68,7 +68,12 @@ const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
       if (file.type === 'application/pdf') {
         // Extract text from PDF using PDF.js
         const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        
+        // Set up worker with a more reliable approach for Vite
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.js',
+          import.meta.url
+        ).toString();
         
         setProgress(20);
         
