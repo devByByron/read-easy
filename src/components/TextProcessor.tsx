@@ -90,8 +90,9 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 
     utterance.onstart = () => setIsPlaying(true);
     utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
       setIsPlaying(false);
+      console.error('Speech synthesis error:', event);
       toast({
         title: "Speech Error",
         description: "There was an error with text-to-speech playback.",
@@ -100,13 +101,17 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     };
 
     utteranceRef.current = utterance;
-    setIsPlaying(true);
     speechSynthesis.speak(utterance);
   };
 
   const handleStop = () => {
-    speechSynthesis.cancel();
+    if (speechSynthesis.speaking || speechSynthesis.pending) {
+      speechSynthesis.cancel();
+    }
     setIsPlaying(false);
+    if (utteranceRef.current) {
+      utteranceRef.current = null;
+    }
   };
 
   const processWithAI = async (type: string) => {
@@ -207,8 +212,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                     <SelectValue placeholder="Select a voice" />
                   </SelectTrigger>
                   <SelectContent>
-                    {voices.map((voice) => (
-                      <SelectItem key={voice.name} value={voice.name}>
+                    {voices.filter(voice => !voice.localService || voice.default).map((voice) => (
+                      <SelectItem key={`${voice.name}-${voice.lang}`} value={voice.name}>
                         {voice.name} ({voice.lang})
                       </SelectItem>
                     ))}
