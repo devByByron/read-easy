@@ -62,17 +62,23 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       return;
     }
 
-    if (speechSynthesis.speaking) {
-      if (speechSynthesis.paused) {
-        speechSynthesis.resume();
-        setIsPlaying(true);
-      } else {
-        speechSynthesis.pause();
-        setIsPlaying(false);
-      }
+    // If currently speaking and paused, resume
+    if (speechSynthesis.speaking && speechSynthesis.paused) {
+      speechSynthesis.resume();
+      setIsPlaying(true);
       return;
     }
 
+    // If currently speaking and not paused, pause
+    if (speechSynthesis.speaking && !speechSynthesis.paused) {
+      speechSynthesis.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    // Stop any existing speech and start new
+    speechSynthesis.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(extractedText);
     utterance.rate = speechRate[0];
     utterance.volume = speechVolume[0];
@@ -94,8 +100,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     };
 
     utteranceRef.current = utterance;
-    speechSynthesis.speak(utterance);
     setIsPlaying(true);
+    speechSynthesis.speak(utterance);
   };
 
   const handleStop = () => {

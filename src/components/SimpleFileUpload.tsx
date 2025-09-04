@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 
 interface FileUploadProps {
   onFileProcessed: (text: string, fileName: string) => void;
+  onFileDeleted?: (fileName: string) => void;
 }
 
-const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
+const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -55,7 +56,18 @@ const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
   };
 
   const removeFile = (index: number) => {
+    const fileToRemove = files[index];
     setFiles(prev => prev.filter((_, i) => i !== index));
+    setProcessedFiles(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(fileToRemove.name);
+      return newSet;
+    });
+    
+    // Notify parent component that file was deleted
+    if (onFileDeleted) {
+      onFileDeleted(fileToRemove.name);
+    }
   };
 
   const processFile = async (file: File) => {
@@ -67,37 +79,62 @@ const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
       
       if (file.type === 'application/pdf') {
         // Extract text from PDF using PDF.js
-        const pdfjsLib = await import('pdfjs-dist');
-        
-        // Set up worker with a more reliable approach for Vite
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.js',
-          import.meta.url
-        ).toString();
-        
-        setProgress(20);
-        
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        setProgress(40);
-        
-        let fullText = '';
-        const numPages = pdf.numPages;
-        
-        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-          fullText += pageText + '\n';
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
           
-          // Update progress for each page
-          setProgress(40 + (pageNum / numPages) * 50);
+          // Set up worker with a more reliable approach for Vite
+          pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+            'pdfjs-dist/build/pdf.worker.min.js',
+            import.meta.url
+          ).toString();
+          
+          setProgress(20);
+          
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          
+          setProgress(40);
+          
+          let fullText = '';
+          const numPages = pdf.numPages;
+          
+          for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            fullText += pageText + '\n';
+            
+            // Update progress for each page
+            setProgress(40 + (pageNum / numPages) * 50);
+          }
+          
+          extractedText = fullText.trim();
+          
+          // If no text was extracted (likely a scanned PDF), use OCR as fallback
+          if (!extractedText) {
+            setProgress(60);
+            const { createWorker } = await import('tesseract.js');
+            const worker = await createWorker('eng');
+            
+            const { data: { text } } = await worker.recognize(file);
+            await worker.terminate();
+            
+            extractedText = text.trim();
+          }
+        } catch (pdfError) {
+          // If PDF processing fails, try OCR as fallback
+          console.log('PDF processing failed, trying OCR:', pdfError);
+          setProgress(60);
+          const { createWorker } = await import('tesseract.js');
+          const worker = await createWorker('eng');
+          
+          const { data: { text } } = await worker.recognize(file);
+          await worker.terminate();
+          
+          extractedText = text.trim();
         }
-        
-        extractedText = fullText.trim();
       } else {
         // Extract text from image using Tesseract.js
         const { createWorker } = await import('tesseract.js');
@@ -201,7 +238,17 @@ const SimpleFileUpload = ({ onFileProcessed }: FileUploadProps) => {
                   
                   <div className="flex items-center space-x-2">
                     {processedFiles.has(file.name) ? (
-                      <CheckCircle className="h-5 w-5 text-accent" />
+                      <>
+                        <CheckCircle className="h-5 w-5 text-accent" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          disabled={processing}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
                     ) : (
                       <>
                         <Button

@@ -33,6 +33,14 @@ const Landing = () => {
     }, 100);
   };
 
+  const handleFileDeleted = (deletedFileName: string) => {
+    // Clear extracted text if the deleted file was the source
+    if (fileName === deletedFileName) {
+      setExtractedText('');
+      setFileName('');
+    }
+  };
+
   return (
     <ThemeProvider
       attribute="class"
@@ -45,7 +53,7 @@ const Landing = () => {
         
         <main className="flex-1">
           <Hero />
-          <SimpleFileUpload onFileProcessed={handleFileProcessed} />
+          <SimpleFileUpload onFileProcessed={handleFileProcessed} onFileDeleted={handleFileDeleted} />
           
           {extractedText && (
             <div id="text-processor">
