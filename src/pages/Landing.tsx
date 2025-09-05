@@ -53,14 +53,6 @@ const Landing = () => {
         
         <main className="flex-1">
           <Hero />
-          <SimpleFileUpload onFileProcessed={handleFileProcessed} onFileDeleted={handleFileDeleted} />
-          
-          {extractedText && (
-            <div id="text-processor">
-              <TextProcessor extractedText={extractedText} fileName={fileName} />
-            </div>
-          )}
-          
           {/* Features Section */}
           <section id="features" className="py-20 bg-muted/30">
             <div className="container max-w-screen-xl">
@@ -187,6 +179,14 @@ const Landing = () => {
               </div>
             </div>
           </section>
+
+           <SimpleFileUpload onFileProcessed={handleFileProcessed} onFileDeleted={handleFileDeleted} />
+          
+          {extractedText && (
+            <div id="text-processor">
+              <TextProcessor extractedText={extractedText} fileName={fileName} />
+            </div>
+          )}
         </main>
         
         {/* Footer */}
