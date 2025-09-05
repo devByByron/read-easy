@@ -50,15 +50,17 @@ const Landing = () => {
     >
       <div className="flex min-h-screen flex-col">
         <Header />
-         <SimpleFileUpload onFileProcessed={handleFileProcessed} onFileDeleted={handleFileDeleted} />
+        
+        <main className="flex-1">
+          <Hero />
+
+           <SimpleFileUpload onFileProcessed={handleFileProcessed} onFileDeleted={handleFileDeleted} />
           
           {extractedText && (
             <div id="text-processor">
               <TextProcessor extractedText={extractedText} fileName={fileName} />
             </div>
           )}
-        <main className="flex-1">
-          <Hero />
           {/* Features Section */}
           <section id="features" className="py-20 bg-muted/30">
             <div className="container max-w-screen-xl">
