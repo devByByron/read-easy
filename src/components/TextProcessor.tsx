@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,31 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       speechSynthesis.speak(utterance);
     }
   }, [speechRate, speechVolume]);
+
+    // Speak immediately when the user changes the voice
+  useEffect(() => {
+    if (!extractedText) return;
+    // If already playing, restart with new voice
+    if (isPlaying) {
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(extractedText);
+      utterance.rate = speechRate[0];
+      utterance.volume = speechVolume[0];
+      if (selectedVoice) {
+        const voice = voices.find(v => v.name === selectedVoice);
+        if (voice) utterance.voice = voice;
+      }
+      utterance.onboundary = (event) => {
+        if (event.name === "word") {
+          charIndexRef.current = event.charIndex;
+        }
+      };
+      utterance.onstart = () => setIsPlaying(true);
+      utterance.onend = () => setIsPlaying(false);
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
+    }
+  }, [selectedVoice]);
 
   const handlePlay = () => {
     if (!extractedText.trim()) {
