@@ -194,12 +194,15 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 
     try {
       let result = '';
+      // Use processedText if available, otherwise fallback to extractedText
+      const inputText = processedText || extractedText;
 
-      if (type === 'summarize') {
+      if (type === 'summarize' || type === 'simplify') {
         if (!HF_API_TOKEN) {
-          throw new Error("Missing Hugging Face API key. Add HF_API_KEY to .env.local");
+          throw new Error("Missing Hugging Face API key. Add VITE_HF_API_KEY to .env.local");
         }
 
+        // Use summarization model for both summarize and simplify
         const response = await fetch(HF_API_URL, {
           method: "POST",
           headers: {
@@ -207,7 +210,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            inputs: extractedText,
+            inputs: inputText,
             parameters: { max_length: 150, min_length: 50, do_sample: false },
           }),
         });
@@ -217,11 +220,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         }
 
         const data = await response.json();
-        result = data[0]?.summary_text || "No summary generated.";
-      } 
-      else if (type === 'simplify') {
-        result = `SIMPLIFIED: ${extractedText.substring(0, 150)}...`;
-      } 
+        result = data[0]?.summary_text || "No simplified text generated.";
+      }
       else if (type === 'translate') {
         if (selectedLanguage === 'en') {
           result = extractedText;

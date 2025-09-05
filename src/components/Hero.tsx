@@ -24,7 +24,7 @@ const Hero = () => {
             <span className="bg-hero-gradient bg-clip-text text-transparent"> Accessible Content</span>
           </h1>
           
-          <p className="mb-8 text-xl text-muted-foreground md:text-2xl max-w-3xl mx-auto leading-relaxed">
+          <p className="mb-8 text-xl text-muted-foreground md:text-2xm max-w-3xl mx-auto leading-relaxed">
             Upload documents, extract text with OCR, and instantly convert to speech or simplify with AI. 
             Designed for everyone, especially those with reading difficulties.
           </p>
