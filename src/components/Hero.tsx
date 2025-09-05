@@ -26,7 +26,7 @@ const Hero = () => {
           
           <p className="mb-8 text-xl text-muted-foreground md:text-2xm max-w-3xl mx-auto leading-relaxed">
             Upload documents, extract text with OCR, and instantly convert to speech or simplify with AI. 
-            Designed for everyone, especially those with reading difficulties.
+            Designed for everyone, especially those with speech difficulties.
           </p>
           
           <div className="mb-12 flex flex-col sm:flex-row gap-4 justify-center">
@@ -39,13 +39,13 @@ const Hero = () => {
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
-            <Button
+{/*             <Button
               variant="outline"
               size="lg"
               className="text-lg px-8 py-6 hover:bg-secondary/50 transition-all duration-300"
             >
               View Demo
-            </Button>
+            </Button> */}
           </div>
           
           {/* Process Flow */}
