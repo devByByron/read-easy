@@ -22,6 +22,23 @@ interface TextProcessorProps {
   fileName: string;
 }
 
+
+const HF_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
+const HF_API_TOKEN = import.meta.env.VITE_HF_API_KEY as string;
+
+const LANGUAGE_MODELS = [
+  { code: 'en', name: 'English', model: 'Helsinki-NLP/opus-mt-mul-en' },
+  { code: 'fr', name: 'French', model: 'Helsinki-NLP/opus-mt-en-fr' },
+  { code: 'es', name: 'Spanish', model: 'Helsinki-NLP/opus-mt-en-es' },
+  { code: 'de', name: 'German', model: 'Helsinki-NLP/opus-mt-en-de' },
+  { code: 'it', name: 'Italian', model: 'Helsinki-NLP/opus-mt-en-it' },
+  { code: 'zh', name: 'Chinese', model: 'Helsinki-NLP/opus-mt-en-zh' },
+  { code: 'ar', name: 'Arabic', model: 'Helsinki-NLP/opus-mt-en-ar' },
+  { code: 'ru', name: 'Russian', model: 'Helsinki-NLP/opus-mt-en-ru' },
+  { code: 'ja', name: 'Japanese', model: 'Helsinki-NLP/opus-mt-en-ja' },
+  { code: 'pt', name: 'Portuguese', model: 'Helsinki-NLP/opus-mt-en-pt' },
+];
+
 const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speechRate, setSpeechRate] = useState([1]);
@@ -31,10 +48,12 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [processedText, setProcessedText] = useState('');
   const [processing, setProcessing] = useState(false);
   const [activeProcessor, setActiveProcessor] = useState<string>('');
-  
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
+
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const charIndexRef = useRef(0);
   const { toast } = useToast();
-  
+
   useEffect(() => {
     const loadVoices = () => {
       const availableVoices = speechSynthesis.getVoices();
@@ -46,11 +65,47 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 
     loadVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    
     return () => {
       speechSynthesis.removeEventListener('voiceschanged', loadVoices);
     };
   }, [selectedVoice]);
+
+  useEffect(() => {
+    if (!extractedText) {
+      speechSynthesis.cancel();
+      setIsPlaying(false);
+      charIndexRef.current = 0;
+      utteranceRef.current = null;
+    }
+  }, [extractedText]);
+
+  useEffect(() => {
+    if (isPlaying && utteranceRef.current) {
+      const currentCharIndex = charIndexRef.current;
+      speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(
+        extractedText.substring(currentCharIndex)
+      );
+      utterance.rate = speechRate[0];
+      utterance.volume = speechVolume[0];
+
+      if (selectedVoice) {
+        const voice = voices.find(v => v.name === selectedVoice);
+        if (voice) utterance.voice = voice;
+      }
+
+      utterance.onboundary = (event) => {
+        if (event.name === "word") {
+          charIndexRef.current = currentCharIndex + event.charIndex;
+        }
+      };
+      utterance.onend = () => setIsPlaying(false);
+
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
+    }
+  }, [speechRate, speechVolume]);
 
   const handlePlay = () => {
     if (!extractedText.trim()) {
@@ -62,43 +117,37 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       return;
     }
 
-    // If currently speaking and paused, resume
     if (speechSynthesis.speaking && speechSynthesis.paused) {
       speechSynthesis.resume();
       setIsPlaying(true);
       return;
     }
 
-    // If currently speaking and not paused, pause
     if (speechSynthesis.speaking && !speechSynthesis.paused) {
       speechSynthesis.pause();
       setIsPlaying(false);
       return;
     }
 
-    // Stop any existing speech and start new
     speechSynthesis.cancel();
-    
+    charIndexRef.current = 0;
+
     const utterance = new SpeechSynthesisUtterance(extractedText);
     utterance.rate = speechRate[0];
     utterance.volume = speechVolume[0];
-    
+
     if (selectedVoice) {
       const voice = voices.find(v => v.name === selectedVoice);
       if (voice) utterance.voice = voice;
     }
 
+    utterance.onboundary = (event) => {
+      if (event.name === "word") {
+        charIndexRef.current = event.charIndex;
+      }
+    };
     utterance.onstart = () => setIsPlaying(true);
     utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = (event) => {
-      setIsPlaying(false);
-      console.error('Speech synthesis error:', event);
-      toast({
-        title: "Speech Error",
-        description: "There was an error with text-to-speech playback.",
-        variant: "destructive"
-      });
-    };
 
     utteranceRef.current = utterance;
     speechSynthesis.speak(utterance);
@@ -109,43 +158,95 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       speechSynthesis.cancel();
     }
     setIsPlaying(false);
-    if (utteranceRef.current) {
-      utteranceRef.current = null;
-    }
+    charIndexRef.current = 0;
+    utteranceRef.current = null;
   };
 
   const processWithAI = async (type: string) => {
     setProcessing(true);
     setActiveProcessor(type);
-    
+
     try {
-      // Simulate AI processing - in a real app, you'd call Hugging Face API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       let result = '';
-      switch (type) {
-        case 'summarize':
-          result = `SUMMARY: ${extractedText.substring(0, 200)}... (This is a simulated summary. In production, this would use AI to create a proper summary.)`;
-          break;
-        case 'simplify':
-          result = `SIMPLIFIED: This text has been made easier to understand. ${extractedText.substring(0, 150)}... (This is a simulated simplification.)`;
-          break;
-        case 'translate':
-          result = `TRANSLATED: Ceci est une traduction simulée du texte. ${extractedText.substring(0, 100)}... (This is a simulated translation to French.)`;
-          break;
-        default:
+
+      if (type === 'summarize') {
+        if (!HF_API_TOKEN) {
+          throw new Error("Missing Hugging Face API key. Add HF_API_KEY to .env.local");
+        }
+
+        const response = await fetch(HF_API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${HF_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            inputs: extractedText,
+            parameters: { max_length: 150, min_length: 50, do_sample: false },
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HF API Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        result = data[0]?.summary_text || "No summary generated.";
+      } 
+      else if (type === 'simplify') {
+        result = `SIMPLIFIED: ${extractedText.substring(0, 150)}...`;
+      } 
+      else if (type === 'translate') {
+        if (selectedLanguage === 'en') {
           result = extractedText;
+        } else {
+          if (!HF_API_TOKEN) {
+            throw new Error("Missing Hugging Face API key. Add VITE_HF_API_KEY to .env.local");
+          }
+          const langModel = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
+          if (!langModel) {
+            throw new Error("No model found for selected language.");
+          }
+          const translateResponse = await fetch(
+            `https://api-inference.huggingface.co/models/${langModel.model}`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${HF_API_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ inputs: extractedText }),
+            }
+          );
+          if (!translateResponse.ok) {
+            throw new Error(`HF API Error: ${translateResponse.statusText}`);
+          }
+          const translateData = await translateResponse.json();
+          // Hugging Face translation APIs may return translation_text or translations
+          if (Array.isArray(translateData)) {
+            result = translateData[0]?.translation_text || translateData[0]?.translations?.[0] || "Translation failed.";
+          } else if (translateData.translation_text) {
+            result = translateData.translation_text;
+          } else if (translateData.translations) {
+            result = translateData.translations[0];
+          } else {
+            result = "Translation failed.";
+          }
+        }
       }
-      
+      else {
+        result = extractedText;
+      }
+
       setProcessedText(result);
       toast({
         title: `Text ${type}d successfully!`,
         description: "The processed text is now ready for use.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Processing Error",
-        description: "There was an error processing the text with AI.",
+        description: error.message || "There was an error processing the text with AI.",
         variant: "destructive"
       });
     } finally {
@@ -212,7 +313,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                     <SelectValue placeholder="Select a voice" />
                   </SelectTrigger>
                   <SelectContent>
-                    {voices.filter(voice => !voice.localService || voice.default).map((voice) => (
+                    {voices.map((voice) => (
                       <SelectItem key={`${voice.name}-${voice.lang}`} value={voice.name}>
                         {voice.name} ({voice.lang})
                       </SelectItem>
@@ -279,15 +380,28 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                 {processing && activeProcessor === 'simplify' ? 'Simplifying...' : 'Simplify Language'}
               </Button>
               
-              <Button
-                onClick={() => processWithAI('translate')}
-                disabled={processing}
-                variant="outline"
-                className="justify-start h-12"
-              >
-                <Languages className="h-4 w-4 mr-3" />
-                {processing && activeProcessor === 'translate' ? 'Translating...' : 'Translate Text'}
-              </Button>
+
+              <div className="flex items-center gap-2">
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={processing}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGE_MODELS.map(lang => (
+                      <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => processWithAI('translate')}
+                  disabled={processing}
+                  variant="outline"
+                  className="justify-start h-12"
+                >
+                  <Languages className="h-4 w-4 mr-3" />
+                  {processing && activeProcessor === 'translate' ? 'Translating...' : 'Translate Text'}
+                </Button>
+              </div>
               
               <Button
                 onClick={downloadText}

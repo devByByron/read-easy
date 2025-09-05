@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils";
 interface FileUploadProps {
   onFileProcessed: (text: string, fileName: string) => void;
   onFileDeleted?: (fileName: string) => void;
+  onStopRecording?: () => void; // ✅ new prop for parent to stop mic recording or playback
 }
 
-const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) => {
+const SimpleFileUpload = ({ onFileProcessed, onFileDeleted, onStopRecording }: FileUploadProps) => {
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -19,7 +20,15 @@ const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) =
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = (file: File): boolean => {
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/bmp', 'image/webp'];
+    const allowedTypes = [
+      'application/pdf',
+      'image/png',
+      'image/jpg',
+      'image/jpeg',
+      'image/gif',
+      'image/bmp',
+      'image/webp'
+    ];
     const maxSize = 10 * 1024 * 1024; // 10MB
     
     return allowedTypes.includes(file.type) && file.size <= maxSize;
@@ -63,8 +72,15 @@ const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) =
       newSet.delete(fileToRemove.name);
       return newSet;
     });
-    
-    // Notify parent component that file was deleted
+
+    // ✅ Stop audio/recording immediately
+    if (onStopRecording) {
+      onStopRecording(); // Let parent handle stopping mic/audio
+    } else {
+      speechSynthesis.cancel(); // fallback: stop speech synthesis
+    }
+
+    // ✅ Notify parent that file was deleted
     if (onFileDeleted) {
       onFileDeleted(fileToRemove.name);
     }
@@ -80,24 +96,17 @@ const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) =
       if (file.type === 'application/pdf') {
         // Extract text from PDF using PDF.js
         try {
-          const pdfjsLib = await import('pdfjs-dist');
-          
-          // Set up worker with a more reliable approach for Vite
+          const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
           pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-            'pdfjs-dist/build/pdf.worker.min.js',
+            'pdfjs-dist/build/pdf.worker.min.mjs',
             import.meta.url
           ).toString();
-          
           setProgress(20);
-          
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          
           setProgress(40);
-          
           let fullText = '';
           const numPages = pdf.numPages;
-          
           for (let pageNum = 1; pageNum <= numPages; pageNum++) {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
@@ -105,44 +114,31 @@ const SimpleFileUpload = ({ onFileProcessed, onFileDeleted }: FileUploadProps) =
               .map((item: any) => item.str)
               .join(' ');
             fullText += pageText + '\n';
-            
-            // Update progress for each page
             setProgress(40 + (pageNum / numPages) * 50);
           }
-          
           extractedText = fullText.trim();
-          
-          // If no text was extracted (likely a scanned PDF), use OCR as fallback
           if (!extractedText) {
             setProgress(60);
             const { createWorker } = await import('tesseract.js');
             const worker = await createWorker('eng');
-            
             const { data: { text } } = await worker.recognize(file);
             await worker.terminate();
-            
             extractedText = text.trim();
           }
         } catch (pdfError) {
-          // If PDF processing fails, try OCR as fallback
           console.log('PDF processing failed, trying OCR:', pdfError);
           setProgress(60);
           const { createWorker } = await import('tesseract.js');
           const worker = await createWorker('eng');
-          
           const { data: { text } } = await worker.recognize(file);
           await worker.terminate();
-          
           extractedText = text.trim();
         }
       } else {
-        // Extract text from image using Tesseract.js
         const { createWorker } = await import('tesseract.js');
         const worker = await createWorker('eng');
         
         setProgress(20);
-        
-        // Simulate progress updates during OCR
         const progressInterval = setInterval(() => {
           setProgress(prev => Math.min(prev + 5, 90));
         }, 300);
