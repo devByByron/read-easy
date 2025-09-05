@@ -65,13 +65,18 @@ const SimpleFileUpload = ({ onFileProcessed, onFileDeleted, onStopRecording }: F
   };
 
   const removeFile = (index: number) => {
-    const fileToRemove = files[index];
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    setProcessedFiles(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(fileToRemove.name);
-      return newSet;
-    });
+  const fileToRemove = files[index];
+  setFiles(prev => prev.filter((_, i) => i !== index));
+  setProcessedFiles(prev => {
+    const newSet = new Set(prev);
+    newSet.delete(fileToRemove.name);
+    return newSet;
+  });
+
+  // Reset file input value to allow immediate re-upload of the same file
+  if (fileInputRef.current) {
+    fileInputRef.current.value = '';
+  }
 
     // ✅ Stop audio/recording immediately
     if (onStopRecording) {
