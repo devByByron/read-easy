@@ -169,25 +169,4 @@ All colors MUST be HSL.
       transition-duration: 0.01ms !important;
     }
   }
-  
-  /* Screen reader mode enhancements */
-  .screen-reader-mode {
-    --text-size-multiplier: 1.2;
-    --focus-ring-width: 3px;
-  }
-  
-  .screen-reader-mode * {
-    font-size: calc(1em * var(--text-size-multiplier));
-  }
-  
-  .screen-reader-mode *:focus-visible {
-    outline-width: var(--focus-ring-width);
-    outline-style: solid;
-    outline-color: hsl(var(--ring));
-    outline-offset: 2px;
-  }
-  
-  .screen-reader-mode .sr-enhanced {
-    @apply font-medium;
-  }
 }
