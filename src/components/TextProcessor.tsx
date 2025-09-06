@@ -24,7 +24,6 @@ interface TextProcessorProps {
 }
 
 const LANGUAGE_MODELS = [
-  { code: 'en', name: 'English', model: 'Helsinki-NLP/opus-mt-mul-en' },
   { code: 'fr', name: 'French', model: 'Helsinki-NLP/opus-mt-en-fr' },
   { code: 'es', name: 'Spanish', model: 'Helsinki-NLP/opus-mt-en-es' },
   { code: 'de', name: 'German', model: 'Helsinki-NLP/opus-mt-en-de' },
@@ -75,57 +74,6 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       utteranceRef.current = null;
     }
   }, [extractedText]);
-
-  useEffect(() => {
-    if (isPlaying && utteranceRef.current) {
-      const currentCharIndex = charIndexRef.current;
-      speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(
-        extractedText.substring(currentCharIndex)
-      );
-      utterance.rate = speechRate[0];
-      utterance.volume = speechVolume[0];
-
-      if (selectedVoice) {
-        const voice = voices.find(v => v.name === selectedVoice);
-        if (voice) utterance.voice = voice;
-      }
-
-      utterance.onboundary = (event) => {
-        if (event.name === "word") {
-          charIndexRef.current = currentCharIndex + event.charIndex;
-        }
-      };
-      utterance.onend = () => setIsPlaying(false);
-
-      utteranceRef.current = utterance;
-      speechSynthesis.speak(utterance);
-    }
-  }, [speechRate, speechVolume]);
-
-  useEffect(() => {
-    if (!extractedText) return;
-    if (isPlaying) {
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(extractedText);
-      utterance.rate = speechRate[0];
-      utterance.volume = speechVolume[0];
-      if (selectedVoice) {
-        const voice = voices.find(v => v.name === selectedVoice);
-        if (voice) utterance.voice = voice;
-      }
-      utterance.onboundary = (event) => {
-        if (event.name === "word") {
-          charIndexRef.current = event.charIndex;
-        }
-      };
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
-      utteranceRef.current = utterance;
-      speechSynthesis.speak(utterance);
-    }
-  }, [selectedVoice]);
 
   const handlePlay = () => {
     if (!extractedText.trim()) {
@@ -191,7 +139,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       const inputText = processedText || extractedText;
       
       // Limit text length to prevent browser freezing
-      const maxLength = 1000; // Smaller limit for client-side processing
+      const maxLength = 1000;
       const truncatedText = inputText.length > maxLength 
         ? inputText.substring(0, maxLength) + "..."
         : inputText;
@@ -240,22 +188,76 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
             description: "Processing text locally...",
           });
 
-          // Simple text summarization using sentence scoring
+          // Simple text summarization
           const sentences = truncatedText.split(/[.!?]+/).filter(s => s.trim().length > 20);
           if (sentences.length <= 3) {
             result = truncatedText;
           } else {
             // Extract most important sentences (first, last, and middle)
             const important = [
-              sentences[0], // First sentence
-              sentences[Math.floor(sentences.length / 2)], // Middle sentence
-              sentences[sentences.length - 1] // Last sentence
+              sentences[0],
+              sentences[Math.floor(sentences.length / 2)],
+              sentences[sentences.length - 1]
             ].filter(Boolean);
             
             result = important.join('. ') + '.';
           }
         } else if (type === "translate") {
-          result = "Translation requires server connection. Please check your network and try again.";
+          toast({
+            title: "Using offline translation",
+            description: "Translating common phrases...",
+          });
+
+          // Basic dictionary-based translation
+          const basicTranslations: Record<string, Record<string, string>> = {
+            'fr': {
+              'hello': 'bonjour', 'goodbye': 'au revoir', 'thank you': 'merci',
+              'please': 's\'il vous plaît', 'yes': 'oui', 'no': 'non',
+              'the': 'le/la', 'and': 'et', 'or': 'ou', 'but': 'mais',
+              'with': 'avec', 'without': 'sans', 'today': 'aujourd\'hui',
+              'tomorrow': 'demain', 'yesterday': 'hier', 'good morning': 'bonjour',
+              'good evening': 'bonsoir', 'how are you': 'comment allez-vous',
+              'my name is': 'je m\'appelle', 'where is': 'où est',
+              'how much': 'combien', 'excuse me': 'excusez-moi'
+            },
+            'es': {
+              'hello': 'hola', 'goodbye': 'adiós', 'thank you': 'gracias',
+              'please': 'por favor', 'yes': 'sí', 'no': 'no',
+              'the': 'el/la', 'and': 'y', 'or': 'o', 'but': 'pero',
+              'with': 'con', 'without': 'sin', 'today': 'hoy',
+              'tomorrow': 'mañana', 'yesterday': 'ayer', 'good morning': 'buenos días',
+              'good evening': 'buenas tardes', 'how are you': 'cómo estás',
+              'my name is': 'me llamo', 'where is': 'dónde está',
+              'how much': 'cuánto', 'excuse me': 'perdón'
+            },
+            'de': {
+              'hello': 'hallo', 'goodbye': 'auf wiedersehen', 'thank you': 'danke',
+              'please': 'bitte', 'yes': 'ja', 'no': 'nein',
+              'the': 'der/die/das', 'and': 'und', 'or': 'oder', 'but': 'aber',
+              'with': 'mit', 'without': 'ohne', 'today': 'heute',
+              'tomorrow': 'morgen', 'yesterday': 'gestern', 'good morning': 'guten morgen',
+              'good evening': 'guten abend', 'how are you': 'wie geht es ihnen',
+              'my name is': 'ich heiße', 'where is': 'wo ist',
+              'how much': 'wie viel', 'excuse me': 'entschuldigung'
+            }
+          };
+
+          const dict = basicTranslations[selectedLanguage] || basicTranslations['fr'];
+          let translatedText = truncatedText;
+          
+          // Replace common phrases and words
+          Object.entries(dict).forEach(([english, translation]) => {
+            const regex = new RegExp(`\\b${english}\\b`, 'gi');
+            translatedText = translatedText.replace(regex, `**${translation}**`);
+          });
+          
+          const targetLanguage = LANGUAGE_MODELS.find(l => l.code === selectedLanguage)?.name || 'target language';
+          
+          if (translatedText === truncatedText) {
+            result = `[Basic translation to ${targetLanguage}]\n\nNote: This text contains specialized terms that require professional translation. Common phrases have been identified but the full text needs proper translation services.\n\nOriginal text:\n${truncatedText}`;
+          } else {
+            result = `[Basic translation to ${targetLanguage}]\n\nTranslated text (common phrases marked with **):\n${translatedText}\n\nNote: This is a basic translation. For accurate results, please use professional translation services.`;
+          }
         }
       }
 
@@ -281,7 +283,6 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       setActiveProcessor('');
     }
   };
-
 
   const downloadText = () => {
     const textToDownload = processedText || extractedText;
