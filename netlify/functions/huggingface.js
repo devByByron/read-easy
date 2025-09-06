@@ -1,56 +1,59 @@
+// netlify/functions/huggingface.js
 export async function handler(event, context) {
-  try {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      throw new Error("Missing GEMINI_API_KEY environment variable");
-    }
+	try {
+		const HF_API_KEY = process.env.HF_API_KEY;
+		const { type, text, selectedLanguage } = JSON.parse(event.body);
 
-    const { type, text, langModel } = JSON.parse(event.body);
+		// Use lightweight T5-small model for all tasks
+		const url =
+			"https://api-inference.huggingface.co/models/t5-small?wait_for_model=true";
 
-    // Build a task-specific instruction
-    let taskPrompt = "";
-    if (type === "summarize") {
-      taskPrompt = `Summarize the following text clearly and concisely:\n\n${text}`;
-    } else if (type === "simplify") {
-      taskPrompt = `Simplify the following text so it’s easy to understand:\n\n${text}`;
-    } else if (type === "translate" && langModel) {
-      taskPrompt = `Translate the following text into ${langModel}:\n\n${text}`;
-    } else {
-      taskPrompt = text;
-    }
+		// Build prefixed input depending on task
+		let inputText = text;
+		if (type === "summarize") {
+			inputText = `summarize: ${text}`;
+		} else if (type === "simplify") {
+			inputText = `simplify: ${text}`;
+		} else if (type === "translate" && selectedLanguage) {
+			// Example: "translate English to French: Hello"
+			inputText = `translate English to ${selectedLanguage}: ${text}`;
+		}
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+		const response = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${HF_API_KEY}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				inputs: inputText,
+				parameters: {
+					max_length: 120,
+					min_length: 20,
+					do_sample: false,
+				},
+			}),
+		});
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: taskPrompt }],
-          },
-        ],
-      }),
-    });
+		const data = await response.json();
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API error: ${errorText}`);
-    }
+		let result = "";
+		if (Array.isArray(data) && data[0]?.generated_text) {
+			result = data[0].generated_text;
+		} else if (Array.isArray(data) && data[0]?.summary_text) {
+			result = data[0].summary_text;
+		} else {
+			result = JSON.stringify(data);
+		}
 
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ result }),
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  }
+		return {
+			statusCode: 200,
+			body: JSON.stringify({ result }),
+		};
+	} catch (error) {
+		return {
+			statusCode: 500,
+			body: JSON.stringify({ error: error.message }),
+		};
+	}
 }
