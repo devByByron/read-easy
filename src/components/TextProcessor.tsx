@@ -182,58 +182,91 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     utteranceRef.current = null;
   };
 
-  // 🔹 Updated to use Netlify function
- const processWithAI = async (type: string) => {
-  setProcessing(true);
-  setActiveProcessor(type);
+  // Process text with AI - with timeout and text length limits
+  const processWithAI = async (type: string) => {
+    setProcessing(true);
+    setActiveProcessor(type);
 
-  try {
-    const inputText = processedText || extractedText;
+    try {
+      const inputText = processedText || extractedText;
+      
+      // Limit text length to prevent timeouts
+      const maxLength = 3000; // Reasonable limit for AI processing
+      const truncatedText = inputText.length > maxLength 
+        ? inputText.substring(0, maxLength) + "..."
+        : inputText;
 
-    // pick correct model
-    let langModel = "";
-    if (type === "translate") {
-      const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
-      langModel = lang ? lang.model : "";
+      if (inputText.length > maxLength) {
+        toast({
+          title: "Text truncated",
+          description: `Processing first ${maxLength} characters to avoid timeout.`,
+        });
+      }
+
+      // Pick correct model
+      let langModel = "";
+      if (type === "translate") {
+        const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
+        langModel = lang ? lang.model : "";
+      }
+
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+
+      const response = await fetch("/.netlify/functions/huggingface", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          type, 
+          text: truncatedText, 
+          langModel 
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const result =
+        data[0]?.summary_text ||
+        data[0]?.translation_text ||
+        data.result ||
+        "Processing completed but no result returned.";
+
+      setProcessedText(result);
+      toast({
+        title: `Text ${type}d successfully!`,
+        description: "The processed text is now ready for use.",
+      });
+    } catch (error: any) {
+      console.error('AI Processing Error:', error);
+      
+      let errorMessage = "There was an error processing the text.";
+      
+      if (error.name === 'AbortError') {
+        errorMessage = "Request timed out. Please try with shorter text or try again later.";
+      } else if (error.message.includes('504')) {
+        errorMessage = "Service temporarily unavailable. Please try again in a few moments.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast({
+        title: "Processing Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setProcessing(false);
+      setActiveProcessor('');
     }
-
-    const response = await fetch("/.netlify/functions/huggingface", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        type, 
-        text: inputText, 
-        langModel 
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Function error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const result =
-      data[0]?.summary_text ||
-      data[0]?.translation_text ||
-      data.result ||
-      JSON.stringify(data);
-
-    setProcessedText(result);
-    toast({
-      title: `Text ${type}d successfully!`,
-      description: "The processed text is now ready for use.",
-    });
-  } catch (error: any) {
-    toast({
-      title: "Processing Error",
-      description: error.message || "There was an error processing the text.",
-      variant: "destructive"
-    });
-  } finally {
-    setProcessing(false);
-    setActiveProcessor('');
-  }
-};
+  };
 
 
   const downloadText = () => {
