@@ -1,4 +1,4 @@
-
+// TextProcessor.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,6 @@ interface TextProcessorProps {
   extractedText: string;
   fileName: string;
 }
-
-
-const HF_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
-const HF_API_TOKEN = import.meta.env.VITE_HF_API_KEY as string;
 
 const LANGUAGE_MODELS = [
   { code: 'en', name: 'English', model: 'Helsinki-NLP/opus-mt-mul-en' },
@@ -108,10 +104,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     }
   }, [speechRate, speechVolume]);
 
-    // Speak immediately when the user changes the voice
   useEffect(() => {
     if (!extractedText) return;
-    // If already playing, restart with new voice
     if (isPlaying) {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(extractedText);
@@ -188,81 +182,30 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     utteranceRef.current = null;
   };
 
+  // 🔹 Updated to use Netlify function
   const processWithAI = async (type: string) => {
     setProcessing(true);
     setActiveProcessor(type);
 
     try {
-      let result = '';
-      // Use processedText if available, otherwise fallback to extractedText
       const inputText = processedText || extractedText;
 
-      if (type === 'summarize' || type === 'simplify') {
-        if (!HF_API_TOKEN) {
-          throw new Error("Missing Hugging Face API key. Add VITE_HF_API_KEY to .env.local");
-        }
+      const response = await fetch("/.netlify/functions/huggingface", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          type, 
+          text: inputText, 
+          targetLang: selectedLanguage 
+        }),
+      });
 
-        // Use summarization model for both summarize and simplify
-        const response = await fetch(HF_API_URL, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${HF_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            inputs: inputText,
-            parameters: { max_length: 150, min_length: 50, do_sample: false },
-          }),
-        });
+      if (!response.ok) {
+        throw new Error(`Function error: ${response.statusText}`);
+      }
 
-        if (!response.ok) {
-          throw new Error(`HF API Error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        result = data[0]?.summary_text || "No simplified text generated.";
-      }
-      else if (type === 'translate') {
-        if (selectedLanguage === 'en') {
-          result = extractedText;
-        } else {
-          if (!HF_API_TOKEN) {
-            throw new Error("Missing Hugging Face API key. Add VITE_HF_API_KEY to .env.local");
-          }
-          const langModel = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
-          if (!langModel) {
-            throw new Error("No model found for selected language.");
-          }
-          const translateResponse = await fetch(
-            `https://api-inference.huggingface.co/models/${langModel.model}`,
-            {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${HF_API_TOKEN}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ inputs: extractedText }),
-            }
-          );
-          if (!translateResponse.ok) {
-            throw new Error(`HF API Error: ${translateResponse.statusText}`);
-          }
-          const translateData = await translateResponse.json();
-          // Hugging Face translation APIs may return translation_text or translations
-          if (Array.isArray(translateData)) {
-            result = translateData[0]?.translation_text || translateData[0]?.translations?.[0] || "Translation failed.";
-          } else if (translateData.translation_text) {
-            result = translateData.translation_text;
-          } else if (translateData.translations) {
-            result = translateData.translations[0];
-          } else {
-            result = "Translation failed.";
-          }
-        }
-      }
-      else {
-        result = extractedText;
-      }
+      const data = await response.json();
+      const result = data.result || "No output generated.";
 
       setProcessedText(result);
       toast({
@@ -272,7 +215,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     } catch (error: any) {
       toast({
         title: "Processing Error",
-        description: error.message || "There was an error processing the text with AI.",
+        description: error.message || "There was an error processing the text.",
         variant: "destructive"
       });
     } finally {
@@ -406,7 +349,6 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                 {processing && activeProcessor === 'simplify' ? 'Simplifying...' : 'Simplify Language'}
               </Button>
               
-
               <div className="flex items-center gap-2">
                 <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={processing}>
                   <SelectTrigger className="w-40">
