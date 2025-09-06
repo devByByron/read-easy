@@ -14,6 +14,7 @@ interface TextProcessorProps {
 }
 
 const LANGUAGE_MODELS = [
+  { code: 'en', name: 'English', model: 'English' }, 
   { code: 'fr', name: 'French', model: 'French' },
   { code: 'es', name: 'Spanish', model: 'Spanish' },
   { code: 'de', name: 'German', model: 'German' },
@@ -24,6 +25,7 @@ const LANGUAGE_MODELS = [
   { code: 'ja', name: 'Japanese', model: 'Japanese' },
   { code: 'pt', name: 'Portuguese', model: 'Portuguese' },
 ];
+
 
 const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
