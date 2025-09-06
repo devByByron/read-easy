@@ -183,48 +183,30 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   };
 
   // 🔹 Updated to use normalized Netlify function response
-  const processWithAI = async (type: string) => {
-    setProcessing(true);
-    setActiveProcessor(type);
+ const processWithAI = async (text: string, type: string, langModel?: string): Promise<string> => {
+  try {
+    const response = await fetch("/.netlify/functions/huggingface", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, text, langModel }),
+    });
 
-    try {
-      const inputText = processedText || extractedText;
+    const data = await response.json();
 
-      let langModel = "";
-      if (type === "translate") {
-        const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
-        langModel = lang ? lang.model : "";
-      }
-
-      const response = await fetch("/.netlify/functions/huggingface", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, text: inputText, langModel }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Function error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const result = data.result || "No output generated.";
-
-      setProcessedText(result);
-      toast({
-        title: `Text ${type}d successfully!`,
-        description: "The processed text is now ready for use.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Processing Error",
-        description: error.message || "There was an error processing the text.",
-        variant: "destructive"
-      });
-    } finally {
-      setProcessing(false);
-      setActiveProcessor('');
+    // 🌀 Retry once if model is still loading
+    if (data.loading) {
+      console.log("Model is loading... retrying in 3s");
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      return await processWithAI(text, type, langModel); // retry once
     }
-  };
+
+    return data.result || "No output generated.";
+  } catch (error) {
+    console.error("Error in processWithAI:", error);
+    return "Error: Could not process request.";
+  }
+};
+
 
   const downloadText = () => {
     const textToDownload = processedText || extractedText;
