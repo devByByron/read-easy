@@ -23,19 +23,18 @@ interface TextProcessorProps {
   fileName: string;
 }
 
-// ✅ Only keep language names (not Hugging Face model IDs)
 const LANGUAGE_MODELS = [
-  { code: 'en', name: 'English' },
-  { code: 'fr', name: 'French' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'ar', name: 'Arabic' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'pt', name: 'Portuguese' },
+  { code: 'fr', name: 'French', model: 'French' },
+  { code: 'es', name: 'Spanish', model: 'Spanish' },
+  { code: 'de', name: 'German', model: 'German' },
+  { code: 'it', name: 'Italian', model: 'Italian' },
+  { code: 'zh', name: 'Chinese', model: 'Chinese' },
+  { code: 'ar', name: 'Arabic', model: 'Arabic' },
+  { code: 'ru', name: 'Russian', model: 'Russian' },
+  { code: 'ja', name: 'Japanese', model: 'Japanese' },
+  { code: 'pt', name: 'Portuguese', model: 'Portuguese' },
 ];
+
 
 const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -136,7 +135,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     utteranceRef.current = null;
   };
 
-  // 🔹 AI Processing with Netlify + Hugging Face
+
   const processWithAI = async (type: string) => {
     setProcessing(true);
     setActiveProcessor(type);
@@ -150,7 +149,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         langName = lang ? lang.name : "";
       }
 
-      const response = await fetch("/.netlify/functions/huggingface", {
+     const response = await fetch("/.netlify/functions/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
