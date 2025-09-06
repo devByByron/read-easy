@@ -4,7 +4,9 @@ export async function handler(event, context) {
 
     const { type, text, langModel } = JSON.parse(event.body);
 
-    let url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
+    // let url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
+     let url = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6";
+  
     if (type === "translate" && langModel) {
       url = `https://api-inference.huggingface.co/models/${langModel}`;
     }
