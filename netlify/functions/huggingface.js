@@ -1,12 +1,10 @@
-// netlify/functions/huggingface.js
 export async function handler(event, context) {
   try {
-    const HF_API_KEY = process.env.HF_API_KEY; // stored in Netlify env vars
+    const HF_API_KEY = process.env.HF_API_KEY;
 
     const { type, text, langModel } = JSON.parse(event.body);
 
     let url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
-
     if (type === "translate" && langModel) {
       url = `https://api-inference.huggingface.co/models/${langModel}`;
     }
