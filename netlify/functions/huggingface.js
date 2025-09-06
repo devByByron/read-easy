@@ -1,8 +1,10 @@
 export async function handler(event, context) {
+  // Set timeout for Netlify function
   context.callbackWaitsForEmptyEventLoop = false;
-
+  
   try {
     const HF_API_KEY = process.env.HF_API_KEY;
+
     if (!HF_API_KEY) {
       return {
         statusCode: 500,
@@ -11,6 +13,7 @@ export async function handler(event, context) {
     }
 
     const { type, text, langModel } = JSON.parse(event.body || '{}');
+
     if (!text || !type) {
       return {
         statusCode: 400,
@@ -18,13 +21,19 @@ export async function handler(event, context) {
       };
     }
 
-    // Use smaller/faster models to avoid Netlify 504
-    let url = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"; // fast summarizer
+    // Use faster, more reliable models
+    let url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn-samsum"; // Faster summarization
+    
     if (type === "simplify") {
-      url = "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6";
+      // Use the same summarization model but with different parameters
+      url = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn-samsum";
     } else if (type === "translate" && langModel) {
       url = `https://api-inference.huggingface.co/models/${langModel}`;
     }
+
+    // Create timeout for HuggingFace API call
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     const response = await fetch(url, {
       method: "POST",
@@ -35,10 +44,13 @@ export async function handler(event, context) {
       body: JSON.stringify({
         inputs: text,
         parameters: type === "summarize" || type === "simplify"
-          ? { max_length: 120, min_length: 40, do_sample: false }
+          ? { max_length: 130, min_length: 30, do_sample: false, temperature: 0.7 }
           : {},
       }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -53,32 +65,41 @@ export async function handler(event, context) {
 
     const data = await response.json();
 
+    // Handle various error responses from HuggingFace
     if (data.error) {
       return {
         statusCode: 503,
-        body: JSON.stringify({ error: "Model loading, retry later", details: data.error }),
+        body: JSON.stringify({ 
+          error: "Model is loading, please try again in a few moments",
+          details: data.error
+        }),
       };
-    }
-
-    // ✅ Normalize result so frontend always gets { result: "..." }
-    let result = "";
-    if (Array.isArray(data)) {
-      if (data[0]?.summary_text) result = data[0].summary_text;
-      else if (data[0]?.translation_text) result = data[0].translation_text;
-    } else if (typeof data === "object" && data.generated_text) {
-      result = data.generated_text;
     }
 
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ result }),
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify(data),
     };
   } catch (error) {
-    console.error("Function error:", error);
+    console.error('Function error:', error);
+    
+    let errorMessage = "Internal server error";
+    let statusCode = 500;
+    
+    if (error.name === 'AbortError') {
+      errorMessage = "Request timeout - please try again with shorter text";
+      statusCode = 408;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message || "Internal server error" }),
+      statusCode: statusCode,
+      body: JSON.stringify({ error: errorMessage }),
     };
   }
 }
