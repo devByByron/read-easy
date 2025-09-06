@@ -183,46 +183,58 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   };
 
   // 🔹 Updated to use Netlify function
-  const processWithAI = async (type: string) => {
-    setProcessing(true);
-    setActiveProcessor(type);
+ const processWithAI = async (type: string) => {
+  setProcessing(true);
+  setActiveProcessor(type);
 
-    try {
-      const inputText = processedText || extractedText;
+  try {
+    const inputText = processedText || extractedText;
 
-      const response = await fetch("/.netlify/functions/huggingface", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          type, 
-          text: inputText, 
-          targetLang: selectedLanguage 
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Function error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const result = data.result || "No output generated.";
-
-      setProcessedText(result);
-      toast({
-        title: `Text ${type}d successfully!`,
-        description: "The processed text is now ready for use.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Processing Error",
-        description: error.message || "There was an error processing the text.",
-        variant: "destructive"
-      });
-    } finally {
-      setProcessing(false);
-      setActiveProcessor('');
+    // pick correct model
+    let langModel = "";
+    if (type === "translate") {
+      const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
+      langModel = lang ? lang.model : "";
     }
-  };
+
+    const response = await fetch("/.netlify/functions/huggingface", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        type, 
+        text: inputText, 
+        langModel 
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Function error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const result =
+      data[0]?.summary_text ||
+      data[0]?.translation_text ||
+      data.result ||
+      JSON.stringify(data);
+
+    setProcessedText(result);
+    toast({
+      title: `Text ${type}d successfully!`,
+      description: "The processed text is now ready for use.",
+    });
+  } catch (error: any) {
+    toast({
+      title: "Processing Error",
+      description: error.message || "There was an error processing the text.",
+      variant: "destructive"
+    });
+  } finally {
+    setProcessing(false);
+    setActiveProcessor('');
+  }
+};
+
 
   const downloadText = () => {
     const textToDownload = processedText || extractedText;
