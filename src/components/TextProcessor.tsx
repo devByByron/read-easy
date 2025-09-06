@@ -182,7 +182,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     utteranceRef.current = null;
   };
 
-  // Process text with AI - with timeout and text length limits
+  // Process text with AI - client-side fallback when Netlify function unavailable
   const processWithAI = async (type: string) => {
     setProcessing(true);
     setActiveProcessor(type);
@@ -190,8 +190,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     try {
       const inputText = processedText || extractedText;
       
-      // Limit text length to prevent timeouts
-      const maxLength = 3000; // Reasonable limit for AI processing
+      // Limit text length to prevent browser freezing
+      const maxLength = 1000; // Smaller limit for client-side processing
       const truncatedText = inputText.length > maxLength 
         ? inputText.substring(0, maxLength) + "..."
         : inputText;
@@ -199,45 +199,69 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       if (inputText.length > maxLength) {
         toast({
           title: "Text truncated",
-          description: `Processing first ${maxLength} characters to avoid timeout.`,
+          description: `Processing first ${maxLength} characters for better performance.`,
         });
       }
 
-      // Pick correct model
-      let langModel = "";
-      if (type === "translate") {
-        const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
-        langModel = lang ? lang.model : "";
+      let result = "";
+
+      // Try Netlify function first, fallback to client-side processing
+      try {
+        // Pick correct model
+        let langModel = "";
+        if (type === "translate") {
+          const lang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
+          langModel = lang ? lang.model : "";
+        }
+
+        const response = await fetch("/.netlify/functions/huggingface", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            type, 
+            text: truncatedText, 
+            langModel 
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          result = data[0]?.summary_text || data[0]?.translation_text || data.result || "";
+        } else {
+          throw new Error("Netlify function unavailable");
+        }
+      } catch (netlifyError) {
+        console.log("Netlify function unavailable, using client-side processing...");
+        
+        // Client-side processing fallback
+        if (type === "summarize" || type === "simplify") {
+          toast({
+            title: "Using offline processing",
+            description: "Processing text locally...",
+          });
+
+          // Simple text summarization using sentence scoring
+          const sentences = truncatedText.split(/[.!?]+/).filter(s => s.trim().length > 20);
+          if (sentences.length <= 3) {
+            result = truncatedText;
+          } else {
+            // Extract most important sentences (first, last, and middle)
+            const important = [
+              sentences[0], // First sentence
+              sentences[Math.floor(sentences.length / 2)], // Middle sentence
+              sentences[sentences.length - 1] // Last sentence
+            ].filter(Boolean);
+            
+            result = important.join('. ') + '.';
+          }
+        } else if (type === "translate") {
+          result = "Translation requires server connection. Please check your network and try again.";
+        }
       }
 
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
-
-      const response = await fetch("/.netlify/functions/huggingface", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          type, 
-          text: truncatedText, 
-          langModel 
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`${response.status}: ${errorText || response.statusText}`);
+      if (!result) {
+        throw new Error("No result generated");
       }
-
-      const data = await response.json();
-      const result =
-        data[0]?.summary_text ||
-        data[0]?.translation_text ||
-        data.result ||
-        "Processing completed but no result returned.";
 
       setProcessedText(result);
       toast({
@@ -247,19 +271,9 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     } catch (error: any) {
       console.error('AI Processing Error:', error);
       
-      let errorMessage = "There was an error processing the text.";
-      
-      if (error.name === 'AbortError') {
-        errorMessage = "Request timed out. Please try with shorter text or try again later.";
-      } else if (error.message.includes('504')) {
-        errorMessage = "Service temporarily unavailable. Please try again in a few moments.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
       toast({
-        title: "Processing Error",
-        description: errorMessage,
+        title: "Processing Error", 
+        description: error.message || "Unable to process text. Please try again.",
         variant: "destructive"
       });
     } finally {
