@@ -12,8 +12,6 @@ Built with **Gemini 1.5 Flash** for text & code generation and **Hugging Face St
 
 ---
 
----
-
 ## 🛠️ Getting Started
 
 Follow these steps to run the project locally:
