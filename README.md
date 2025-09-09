@@ -12,13 +12,6 @@ Built with **Gemini 1.5 Flash** for text & code generation and **Hugging Face St
 
 ---
 
-## 🖼️ Preview
-
-> *(Add a screenshot of your app here to showcase the UI)*  
->
-> Example:  
-> ![App Preview](./screenshot.png)  
-
 ---
 
 ## 🛠️ Getting Started
