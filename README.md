@@ -1,4 +1,4 @@
-# AI Accessibility Tool
+# Ready Easy - AI Accessibility Tool
 
 A modern web application that enhances digital accessibility by allowing users to extract and process text from uploaded **PDFs** or **images**, and transform it with AI-powered accessibility features.
 
