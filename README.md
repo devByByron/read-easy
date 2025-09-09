@@ -1,73 +1,48 @@
-# Welcome to your Lovable project
+# 🚀 Custom Content Generator
 
-## Project info
+A versatile tool that allows users to generate **text, code, and images** from simple prompts.  
+Powered by **Gemini 1.5 Flash** for text/code generation and **Hugging Face Stable Diffusion** for image generation.
 
-**URL**: https://lovable.dev/projects/e4c467fe-a14a-4c7c-a71d-166657814567
+---
 
-## How can I edit this code?
+## 🌐 Project Info
 
-There are several ways of editing your application.
+- **Live URL**: [bygen.netlify.app](https://bygen.netlify.app/)  
+- **GitHub Repo**: [github.com/devByByron/BYGen](https://github.com/devByByron/BYGen)  
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e4c467fe-a14a-4c7c-a71d-166657814567) and start prompting.
+## 🛠️ Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Follow these steps to run the project locally:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Step 1: Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Step 2: Navigate to the project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Step 3: Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Start the development server
 npm run dev
-```
+⚡ Technologies Used
+React
 
-**Edit a file directly in GitHub**
+TypeScript
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Vite
 
-**Use GitHub Codespaces**
+Tailwind CSS
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+shadcn-ui
 
-## What technologies are used for this project?
+Gemini 1.5 Flash API (text & code generation)
 
-This project is built with:
+Hugging Face Stable Diffusion (text-to-image generation)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/e4c467fe-a14a-4c7c-a71d-166657814567) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+🚀 Deployment
+This project is deployed with Netlify.
+To deploy your own version, connect the repository to Netlify (or your preferred hosting provider) and follow their setup instructions.
