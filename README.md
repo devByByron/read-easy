@@ -4,7 +4,6 @@ A modern web application that enhances digital accessibility by allowing users t
 
 🔗 **Live Demo:** [readeazy.netlify.app](https://readeazy.netlify.app/)  
 📂 **GitHub Repo:** [github.com/devByByron/read-easy](https://github.com/devByByron/read-easy)  
-🌐 **Lovable Project:** [Lovable Project Link](https://lovable.dev/projects/e4c467fe-a14a-4c7c-a71d-166657814567)  
 
 ---
 
