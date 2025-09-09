@@ -1,14 +1,23 @@
 # 🚀 Custom Content Generator
 
 A versatile tool that allows users to generate **text, code, and images** from simple prompts.  
-Powered by **Gemini 1.5 Flash** for text/code generation and **Hugging Face Stable Diffusion** for image generation.
+Built with **Gemini 1.5 Flash** for text & code generation and **Hugging Face Stable Diffusion** for image generation.  
 
 ---
 
 ## 🌐 Project Info
 
-- **Live URL**: [bygen.netlify.app](https://bygen.netlify.app/)  
-- **GitHub Repo**: [github.com/devByByron/BYGen](https://github.com/devByByron/BYGen)  
+- **Live Demo**: [bygen.netlify.app](https://bygen.netlify.app/)  
+- **GitHub Repository**: [github.com/devByByron/BYGen](https://github.com/devByByron/BYGen)  
+
+---
+
+## 🖼️ Preview
+
+> *(Add a screenshot of your app here to showcase the UI)*  
+>
+> Example:  
+> ![App Preview](./screenshot.png)  
 
 ---
 
@@ -16,33 +25,62 @@ Powered by **Gemini 1.5 Flash** for text/code generation and **Hugging Face Stab
 
 Follow these steps to run the project locally:
 
-```sh
-# Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
+```bash
+# 1. Clone the repository
+git clone https://github.com/devByByron/BYGen.git
 
-# Step 2: Navigate to the project directory
-cd <YOUR_PROJECT_NAME>
+# 2. Navigate to the project directory
+cd BYGen
 
-# Step 3: Install dependencies
+# 3. Install dependencies
 npm install
 
-# Step 4: Start the development server
+# 4. Start the development server
 npm run dev
-⚡ Technologies Used
-React
+```
 
-TypeScript
+---
 
-Vite
+## ⚡ Technologies Used
 
-Tailwind CSS
+- **React**  
+- **TypeScript**  
+- **Vite**  
+- **Tailwind CSS**  
+- **shadcn-ui**  
+- **Gemini 1.5 Flash API** → Text & Code Generation  
+- **Hugging Face Stable Diffusion** → Text-to-Image Generation  
 
-shadcn-ui
+---
 
-Gemini 1.5 Flash API (text & code generation)
+## 🚀 Deployment
 
-Hugging Face Stable Diffusion (text-to-image generation)
+The project is deployed with **Netlify**.  
+To deploy your own version:  
 
-🚀 Deployment
-This project is deployed with Netlify.
-To deploy your own version, connect the repository to Netlify (or your preferred hosting provider) and follow their setup instructions.
+1. Connect your repository to Netlify (or another hosting service).  
+2. Configure the build command as:  
+
+   ```bash
+   npm run build
+   ```  
+
+3. Set the output directory to:  
+
+   ```bash
+   dist
+   ```  
+
+---
+
+## 📜 License
+
+This project is open-source and available under the **MIT License**.  
+
+---
+
+## 👨‍💻 Author
+
+**Byron Young**  
+- GitHub: [@devByByron](https://github.com/devByByron)  
+- Portfolio: [bygen.netlify.app](https://bygen.netlify.app/)  
