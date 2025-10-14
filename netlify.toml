@@ -1,3 +1,11 @@
 [build]
   functions = "netlify/functions"
   publish = "dist"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Enable required permissions for Web Speech API
+    Permissions-Policy = "microphone=(), camera=(), payment=(), usb=()"
+    # Ensure secure context for HTTPS
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
