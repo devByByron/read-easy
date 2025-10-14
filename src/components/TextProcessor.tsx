@@ -613,6 +613,15 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     try {
       const inputText = processedText || extractedText;
 
+      // Check text length and warn user
+      const MAX_LENGTH = type === 'translate' ? 3000 : 4000;
+      if (inputText.length > MAX_LENGTH) {
+        toast({
+          title: "Text Too Long",
+          description: `Processing first ${MAX_LENGTH} characters. For full text, summarize first then ${type}.`,
+        });
+      }
+
       // Pick correct language model
       let langName = "";
       if (type === "translate") {
@@ -658,9 +667,23 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         description: "The processed text is now ready for use.",
       });
     } catch (error: any) {
+      console.error('AI Processing error:', error);
+      
+      let errorMessage = error.message || "There was an error processing the text.";
+      let errorTitle = "Processing Error";
+      
+      // Handle specific error cases
+      if (error.message?.includes('timeout') || error.message?.includes('504')) {
+        errorTitle = "Request Timeout";
+        errorMessage = "Text is too long for processing. Try summarizing first, then translate the summary.";
+      } else if (error.message?.includes('Function error: Gateway Timeout')) {
+        errorTitle = "Processing Timeout";
+        errorMessage = "The request took too long. Please try with shorter text or summarize first.";
+      }
+      
       toast({
-        title: "Processing Error",
-        description: error.message || "There was an error processing the text.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -739,9 +762,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium">
                       Voice 
-                      <span className="text-xs text-muted-foreground ml-2">
-                        (All voices tested for compatibility)
-                      </span>
+                     
                     </label>
                     <div className="flex items-center space-x-2">
                       <input
@@ -751,9 +772,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                         onChange={(e) => setAutoSwitchVoice(e.target.checked)}
                         className="h-3 w-3"
                       />
-                      <label htmlFor="auto-switch" className="text-xs text-muted-foreground">
-                        Auto-switch for languages
-                      </label>
+                     
                     </div>
                   </div>
                   <Select 
@@ -966,7 +985,17 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
             <h3 className="text-xl font-semibold">
               {processedText ? 'Processed Text' : 'Extracted Text'}
             </h3>
-            <span className="text-sm text-muted-foreground">{fileName}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {(processedText || extractedText).length} characters
+                {(processedText || extractedText).length > 3000 && (
+                  <span className="text-amber-600 ml-2">
+                    ⚠️ Long text - may need summarizing
+                  </span>
+                )}
+              </span>
+              <span className="text-sm text-muted-foreground">{fileName}</span>
+            </div>
           </div>
           <Textarea
             value={processedText || extractedText}

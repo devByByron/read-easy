@@ -7,50 +7,80 @@ export async function handler(event, context) {
 
     const { type, text, langModel } = JSON.parse(event.body);
 
-    // Build a task-specific instruction
+    // Limit text size for faster processing to avoid Netlify timeouts
+    const MAX_TEXT_LENGTH = type === 'translate' ? 3000 : 4000;
+    let processedText = text;
+    
+    if (text.length > MAX_TEXT_LENGTH) {
+      console.log(`Text too long (${text.length} chars), truncating to ${MAX_TEXT_LENGTH} chars`);
+      processedText = text.substring(0, MAX_TEXT_LENGTH) + '...';
+    }
+
+    // Build a task-specific instruction with optimized prompts for faster processing
     let taskPrompt = "";
     if (type === "summarize") {
-      taskPrompt = `Summarize the following text clearly and concisely:\n\n${text}`;
+      taskPrompt = `Summarize this text in 3-5 sentences:\n\n${processedText}`;
     } else if (type === "simplify") {
-      taskPrompt = `Simplify the following text so it’s easy to understand:\n\n${text}`;
+      taskPrompt = `Rewrite this in simple, clear language:\n\n${processedText}`;
     } else if (type === "translate" && langModel) {
-      taskPrompt = `Translate the following text into ${langModel}:\n\n${text}`;
+      taskPrompt = `Translate to ${langModel}:\n\n${processedText}`;
     } else {
-      taskPrompt = text;
+      taskPrompt = processedText;
     }
 
     const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: taskPrompt }],
+    // Add timeout to stay within Netlify limits (8 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: taskPrompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.3, // Lower temperature for faster, more focused responses
+            maxOutputTokens: 1024, // Limit output for faster processing
           },
-        ],
-      }),
-    });
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API error: ${errorText}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API error: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ result }),
+      };
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Request timeout. Text is too long. Try with shorter text or use summarize first.');
+      }
+      throw fetchError;
     }
-
-    const data = await response.json();
-    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ result }),
-    };
   } catch (error) {
+    console.error('Gemini function error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ error: error.message || 'An error occurred processing your request' }),
     };
   }
 }

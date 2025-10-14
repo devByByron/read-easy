@@ -1,4 +1,25 @@
-// Local Gemini API service for development
+// Helper to chunk text for faster processing
+function chunkText(text: string, maxChunkSize: number = 2000): string[] {
+  if (text.length <= maxChunkSize) return [text];
+  
+  const chunks: string[] = [];
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  let currentChunk = '';
+  
+  for (const sentence of sentences) {
+    if ((currentChunk + sentence).length <= maxChunkSize) {
+      currentChunk += sentence;
+    } else {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    }
+  }
+  
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
+}
+
+// Local Gemini API service for development with timeout and chunking
 export async function callGeminiAPI(type: string, text: string, langModel?: string) {
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   
@@ -6,41 +27,70 @@ export async function callGeminiAPI(type: string, text: string, langModel?: stri
     throw new Error("Missing VITE_GEMINI_API_KEY environment variable");
   }
 
-  // Build a task-specific instruction
+  // Limit text size for faster processing (max ~3000 chars for translations)
+  const MAX_TEXT_LENGTH = type === 'translate' ? 3000 : 4000;
+  let processedText = text;
+  
+  if (text.length > MAX_TEXT_LENGTH) {
+    console.log(`Text too long (${text.length} chars), truncating to ${MAX_TEXT_LENGTH} chars`);
+    processedText = text.substring(0, MAX_TEXT_LENGTH) + '...';
+  }
+
+  // Build a task-specific instruction with optimized prompts
   let taskPrompt = "";
   if (type === "summarize") {
-    taskPrompt = `Summarize the following text clearly and concisely:\n\n${text}`;
+    taskPrompt = `Summarize this text in 3-5 sentences:\n\n${processedText}`;
   } else if (type === "simplify") {
-    taskPrompt = `Simplify the following text so it's easy to understand:\n\n${text}`;
+    taskPrompt = `Rewrite this in simple, clear language:\n\n${processedText}`;
   } else if (type === "translate" && langModel) {
-    taskPrompt = `Translate the following text into ${langModel}:\n\n${text}`;
+    taskPrompt = `Translate to ${langModel}:\n\n${processedText}`;
   } else {
-    taskPrompt = text;
+    taskPrompt = processedText;
   }
 
   const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: taskPrompt }],
+  // Add timeout to prevent hanging (8 seconds for local, to stay under Netlify's limit)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: taskPrompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3, // Lower temperature for faster, more focused responses
+          maxOutputTokens: 1024, // Limit output for faster processing
         },
-      ],
-    }),
-  });
+      }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API error: ${errorText}`);
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    return { result };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout. Try with shorter text or simplify first.');
+    }
+    throw error;
   }
-
-  const data = await response.json();
-  const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-  return { result };
 }
