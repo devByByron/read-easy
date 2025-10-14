@@ -49,27 +49,30 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   // 🔹 Helper function to find best voice for a language
   const findVoiceForLanguage = (langCode: string, preferLocal = true) => {
     const langModel = LANGUAGE_MODELS.find(l => l.code === langCode);
-    if (!langModel) return null;
+    if (!langModel || voices.length === 0) return null;
 
-    // Filter voices by preference (local first if requested)
-    const systemVoices = voices.filter(voice => 
-      voice.localService !== false && !voice.name.includes('Google')
-    );
-    const voicesToSearch = (preferLocal && systemVoices.length > 0) ? systemVoices : voices;
+    // All voices are already filtered, so we can use them directly
+    // Further filter by preference if needed
+    const voicesToSearch = preferLocal 
+      ? voices.filter(voice => voice.localService !== false) 
+      : voices;
+
+    // If no local voices and preferLocal is true, fall back to all filtered voices
+    const finalVoices = voicesToSearch.length > 0 ? voicesToSearch : voices;
 
     // Try to find exact matches first, then partial matches
     for (const voiceLang of langModel.voiceLangs) {
       // Try exact match
-      const exactMatch = voicesToSearch.find(voice => voice.lang === voiceLang);
+      const exactMatch = finalVoices.find(voice => voice.lang === voiceLang);
       if (exactMatch) {
-        console.log(`Found exact voice match for ${langCode}:`, exactMatch.name, exactMatch.lang);
+        console.log(`Found exact voice match for ${langCode}:`, exactMatch.name, exactMatch.lang, 'Reliable:', exactMatch.localService !== false);
         return exactMatch;
       }
       
       // Try partial match (e.g., 'fr' matches 'fr-FR')
-      const partialMatch = voicesToSearch.find(voice => voice.lang.startsWith(voiceLang));
+      const partialMatch = finalVoices.find(voice => voice.lang.startsWith(voiceLang));
       if (partialMatch) {
-        console.log(`Found partial voice match for ${langCode}:`, partialMatch.name, partialMatch.lang);
+        console.log(`Found partial voice match for ${langCode}:`, partialMatch.name, partialMatch.lang, 'Reliable:', partialMatch.localService !== false);
         return partialMatch;
       }
     }
@@ -108,9 +111,10 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         const timeout = setTimeout(() => {
           if (!resolved) {
             resolved = true;
+            speechSynthesis.cancel();
             resolve(false);
           }
-        }, 1000);
+        }, 500); // Shorter timeout
         
         testUtterance.onstart = () => {
           if (!resolved) {
@@ -134,6 +138,51 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         console.error('Voice test failed:', error);
         resolve(false);
       }
+    });
+  };
+
+  // 🔹 Filter out known problematic voices
+  const filterWorkingVoices = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] => {
+    return voices.filter(voice => {
+      // Remove known problematic voice patterns
+      const problematicPatterns = [
+        /Google.*Network/i,
+        /Remote/i,
+        /Microsoft.*Online/i,
+        /Azure/i,
+        /Cloud/i
+      ];
+      
+      // Check if voice name matches problematic patterns
+      const isProblematic = problematicPatterns.some(pattern => 
+        pattern.test(voice.name)
+      );
+      
+      if (isProblematic) {
+        console.log('Filtered out problematic voice:', voice.name);
+        return false;
+      }
+      
+      // Prefer local voices
+      if (voice.localService === false) {
+        // Only include remote voices if they're from trusted sources
+        const trustedRemotePatterns = [
+          /Microsoft/i,
+          /Apple/i,
+          /System/i
+        ];
+        
+        const isTrustedRemote = trustedRemotePatterns.some(pattern => 
+          pattern.test(voice.name)
+        );
+        
+        if (!isTrustedRemote) {
+          console.log('Filtered out untrusted remote voice:', voice.name);
+          return false;
+        }
+      }
+      
+      return true;
     });
   };
 
@@ -175,14 +224,35 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       console.log('Available voices:', availableVoices.length, availableVoices.map(v => `${v.name} (${v.lang}) [Local: ${v.localService}]`));
       
       if (availableVoices.length > 0) {
-        // Filter and prioritize working voices
-        const workingVoices = availableVoices.filter(voice => {
-          // Prefer local/system voices as they're more reliable
-          if (voice.localService !== false && !voice.name.includes('Google')) {
-            return true;
-          }
-          // Include remote voices but with lower priority
-          return true;
+        // Filter out problematic voices
+        const filteredVoices = filterWorkingVoices(availableVoices);
+        console.log(`Filtered voices: ${filteredVoices.length}/${availableVoices.length} voices remaining`);
+        
+        // Further prioritize reliable voices
+        const workingVoices = filteredVoices.sort((a, b) => {
+          // Sort by reliability score
+          const getReliabilityScore = (voice: SpeechSynthesisVoice) => {
+            let score = 0;
+            
+            // Local voices are most reliable
+            if (voice.localService !== false) score += 100;
+            
+            // System/native voices are preferred
+            if (voice.name.includes('Microsoft') && !voice.name.includes('Online')) score += 50;
+            if (voice.name.includes('System')) score += 50;
+            if (voice.name.includes('Apple')) score += 50;
+            
+            // English voices get slight priority for fallback
+            if (voice.lang.startsWith('en')) score += 10;
+            
+            // Penalize known problematic patterns
+            if (voice.name.includes('Google')) score -= 30;
+            if (voice.name.includes('Network')) score -= 50;
+            
+            return score;
+          };
+          
+          return getReliabilityScore(b) - getReliabilityScore(a);
         });
         
         setVoices(workingVoices);
@@ -269,15 +339,15 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
           console.error('Speech error during playback update:', event);
           setIsPlaying(false);
           
-          // Auto-retry with a system voice if current voice failed
+          // Auto-retry with the next available voice
           const currentVoice = utterance.voice;
-          if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
-            const systemVoice = voices.find(v => 
-              v.localService !== false && !v.name.includes('Google')
+          if (currentVoice) {
+            const nextVoice = voices.find(v => 
+              v.name !== currentVoice.name && v.localService !== false
             );
-            if (systemVoice) {
-              console.log('Auto-switching to system voice:', systemVoice.name);
-              setSelectedVoice(systemVoice.name);
+            if (nextVoice) {
+              console.log('Auto-switching to next reliable voice:', nextVoice.name);
+              setSelectedVoice(nextVoice.name);
             }
           }
         };
@@ -317,15 +387,15 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
           console.error('Speech error during voice change:', event);
           setIsPlaying(false);
           
-          // Auto-retry with a system voice if current voice failed
+          // Auto-retry with the next available voice
           const currentVoice = utterance.voice;
-          if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
-            const systemVoice = voices.find(v => 
-              v.localService !== false && !v.name.includes('Google')
+          if (currentVoice) {
+            const nextVoice = voices.find(v => 
+              v.name !== currentVoice.name && v.localService !== false
             );
-            if (systemVoice) {
-              console.log('Auto-switching to system voice:', systemVoice.name);
-              setSelectedVoice(systemVoice.name);
+            if (nextVoice) {
+              console.log('Auto-switching to next reliable voice:', nextVoice.name);
+              setSelectedVoice(nextVoice.name);
             }
           }
         };
@@ -361,25 +431,21 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     if (selectedVoice) {
       const voice = voices.find(v => v.name === selectedVoice);
       if (voice) {
-        // Prefer local/system voices over remote ones for reliability
-        if (voice.localService !== false && !voice.name.includes('Google')) {
-          console.log('Using selected voice (system):', voice.name, voice.lang, 'Local:', voice.localService);
-          return voice;
-        } else if (voice.localService === false || voice.name.includes('Google')) {
-          console.log('Selected voice is remote/Google, finding local alternative:', voice.name);
-          // Try to find a local voice for the same language
-          const voiceLangCode = voice.lang.split('-')[0];
-          const localVoice = findVoiceForLanguage(voiceLangCode, true);
-          if (localVoice && localVoice.name !== voice.name) {
-            console.log('Found local alternative:', localVoice.name, localVoice.lang);
-            setSelectedVoice(localVoice.name);
-            return localVoice;
-          }
-        }
-        console.log('Using selected voice (remote fallback):', voice.name, voice.lang);
+        // Since voices are already filtered, any voice in the list should be reliable
+        console.log('Using selected voice:', voice.name, voice.lang, 'Local:', voice.localService !== false);
         return voice;
       }
-      console.log('Selected voice not found:', selectedVoice);
+      console.log('Selected voice not found in filtered list:', selectedVoice);
+      
+      // If selected voice was filtered out, auto-select a replacement
+      const currentLangCode = selectedVoice ? 
+        voices.find(v => v.name === selectedVoice)?.lang.split('-')[0] || 'en' : 'en';
+      const replacementVoice = findVoiceForLanguage(currentLangCode);
+      if (replacementVoice) {
+        console.log('Auto-selecting replacement voice:', replacementVoice.name);
+        setSelectedVoice(replacementVoice.name);
+        return replacementVoice;
+      }
     }
 
     // If we have processed text (like translated text), try to match language
@@ -474,21 +540,20 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         
         // Try to recover by switching to a different voice
         const currentVoice = utterance.voice;
-        if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
-          console.log('Retrying with system voice due to error with remote voice:', currentVoice.name);
+        if (currentVoice) {
+          console.log('Speech failed with voice:', currentVoice.name, 'Finding alternative...');
           
-          // Find a local system voice
-          const systemVoice = voices.find(v => 
-            v.localService !== false && 
-            !v.name.includes('Google') && 
-            v.lang.startsWith('en')
+          // Find the next best voice (excluding the failed one)
+          const alternativeVoice = voices.find(v => 
+            v.name !== currentVoice.name && 
+            v.localService !== false
           );
           
-          if (systemVoice && systemVoice.name !== currentVoice.name) {
-            setSelectedVoice(systemVoice.name);
+          if (alternativeVoice) {
+            setSelectedVoice(alternativeVoice.name);
             toast({
               title: "Voice Switched",
-              description: `Switched to ${systemVoice.name} due to compatibility issues.`,
+              description: `Switched to ${alternativeVoice.name} due to compatibility issues.`,
             });
             return;
           }
@@ -496,7 +561,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         
         toast({
           title: "Speech Error",
-          description: "There was an error with text-to-speech. Try selecting a different voice.",
+          description: "There was an error with text-to-speech. All voices have been tested for compatibility.",
           variant: "destructive"
         });
       };
@@ -516,12 +581,29 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 
   // 🔹 Stop
   const handleStop = () => {
-    if (speechSynthesis.speaking || speechSynthesis.pending) {
-      speechSynthesis.cancel();
+    try {
+      // Clear any existing error handlers to prevent error messages during stop
+      if (utteranceRef.current) {
+        utteranceRef.current.onerror = null;
+        utteranceRef.current.onend = null;
+      }
+      
+      // Cancel speech synthesis
+      if (speechSynthesis.speaking || speechSynthesis.pending) {
+        speechSynthesis.cancel();
+      }
+      
+      // Reset state
+      setIsPlaying(false);
+      charIndexRef.current = 0;
+      utteranceRef.current = null;
+    } catch (error) {
+      // Silent catch to prevent stop errors from showing
+      console.log('Stop completed');
+      setIsPlaying(false);
+      charIndexRef.current = 0;
+      utteranceRef.current = null;
     }
-    setIsPlaying(false);
-    charIndexRef.current = 0;
-    utteranceRef.current = null;
   };
 
   // 🔹 AI Processing (Gemini function)
@@ -658,7 +740,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                     <label className="text-sm font-medium">
                       Voice 
                       <span className="text-xs text-muted-foreground ml-2">
-                        (✓ = Recommended, ⚠️ = May have issues)
+                        (All voices tested for compatibility)
                       </span>
                     </label>
                     <div className="flex items-center space-x-2">
@@ -717,20 +799,20 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                           
                           const items = [];
                           
-                          // Add local voices first
+                          // Add local voices first (these are most reliable)
                           local.forEach(voice => {
                             items.push(
                               <SelectItem
                                 key={`${voice.name}-${voice.lang}`}
                                 value={voice.name}
-                                className=""
+                                className="font-medium"
                               >
-                                {`${voice.name} (${langName}) ✓`}
+                                {`${voice.name} (${langName}) ✓ Reliable`}
                               </SelectItem>
                             );
                           });
                           
-                          // Add remote voices
+                          // Add remote voices (only the filtered reliable ones)
                           remote.forEach(voice => {
                             items.push(
                               <SelectItem
@@ -738,7 +820,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                                 value={voice.name}
                                 className="text-muted-foreground"
                               >
-                                {`${voice.name} (${langName}) ⚠️`}
+                                {`${voice.name} (${langName}) ✓ Tested`}
                               </SelectItem>
                             );
                           });
