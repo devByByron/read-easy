@@ -40,7 +40,7 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [activeProcessor, setActiveProcessor] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
   const [speechSupported, setSpeechSupported] = useState(true);
-  const [autoSwitchVoice, setAutoSwitchVoice] = useState(true);
+  const [autoSwitchVoice, setAutoSwitchVoice] = useState(false);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const charIndexRef = useRef(0);
@@ -408,17 +408,6 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       }
     }
   }, [selectedVoice, voices]);
-
-  // 🔹 Auto-switch voice when processed text changes (after translation)
-  useEffect(() => {
-    if (processedText && activeProcessor === 'translate' && autoSwitchVoice && voices.length > 0) {
-      const languageVoice = findVoiceForLanguage(selectedLanguage);
-      if (languageVoice && languageVoice.name !== selectedVoice) {
-        setSelectedVoice(languageVoice.name);
-        console.log(`Auto-switched voice after translation to ${selectedLanguage}:`, languageVoice.name);
-      }
-    }
-  }, [processedText, activeProcessor, selectedLanguage, autoSwitchVoice, voices]);
 
   // 🔹 Helper function to get a valid voice
   const getValidVoice = () => {

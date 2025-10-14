@@ -48,8 +48,8 @@ export async function callGeminiAPI(type: string, text: string, langModel?: stri
     taskPrompt = processedText;
   }
 
-  // Use the stable Gemini Pro model with v1 endpoint
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+  // Use Gemini 1.5 Flash (latest) - fastest and most efficient
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
   // Add timeout to prevent hanging (8 seconds for local, to stay under Netlify's limit)
   const controller = new AbortController();
