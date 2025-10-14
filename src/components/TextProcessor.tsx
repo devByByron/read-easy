@@ -16,16 +16,16 @@ interface TextProcessorProps {
 }
 
 const LANGUAGE_MODELS = [
-  { code: 'en', name: 'English', model: 'English' }, 
-  { code: 'fr', name: 'French', model: 'French' },
-  { code: 'es', name: 'Spanish', model: 'Spanish' },
-  { code: 'de', name: 'German', model: 'German' },
-  { code: 'it', name: 'Italian', model: 'Italian' },
-  { code: 'zh', name: 'Chinese', model: 'Chinese' },
-  { code: 'ar', name: 'Arabic', model: 'Arabic' },
-  { code: 'ru', name: 'Russian', model: 'Russian' },
-  { code: 'ja', name: 'Japanese', model: 'Japanese' },
-  { code: 'pt', name: 'Portuguese', model: 'Portuguese' },
+  { code: 'en', name: 'English', model: 'English', voiceLangs: ['en-US', 'en-GB', 'en-AU', 'en-CA', 'en-IN', 'en-ZA', 'en'] }, 
+  { code: 'fr', name: 'French', model: 'French', voiceLangs: ['fr-FR', 'fr-CA', 'fr-BE', 'fr-CH', 'fr'] },
+  { code: 'es', name: 'Spanish', model: 'Spanish', voiceLangs: ['es-ES', 'es-MX', 'es-AR', 'es-CO', 'es-US', 'es'] },
+  { code: 'de', name: 'German', model: 'German', voiceLangs: ['de-DE', 'de-AT', 'de-CH', 'de'] },
+  { code: 'it', name: 'Italian', model: 'Italian', voiceLangs: ['it-IT', 'it-CH', 'it'] },
+  { code: 'zh', name: 'Chinese', model: 'Chinese', voiceLangs: ['zh-CN', 'zh-TW', 'zh-HK', 'zh'] },
+  { code: 'ar', name: 'Arabic', model: 'Arabic', voiceLangs: ['ar-SA', 'ar-AE', 'ar-EG', 'ar-MA', 'ar'] },
+  { code: 'ru', name: 'Russian', model: 'Russian', voiceLangs: ['ru-RU', 'ru'] },
+  { code: 'ja', name: 'Japanese', model: 'Japanese', voiceLangs: ['ja-JP', 'ja'] },
+  { code: 'pt', name: 'Portuguese', model: 'Portuguese', voiceLangs: ['pt-BR', 'pt-PT', 'pt'] },
 ];
 
 
@@ -40,10 +40,60 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const [activeProcessor, setActiveProcessor] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [autoSwitchVoice, setAutoSwitchVoice] = useState(true);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const charIndexRef = useRef(0);
   const { toast } = useToast();
+
+  // 🔹 Helper function to find best voice for a language
+  const findVoiceForLanguage = (langCode: string, preferLocal = true) => {
+    const langModel = LANGUAGE_MODELS.find(l => l.code === langCode);
+    if (!langModel) return null;
+
+    // Filter voices by preference (local first if requested)
+    const systemVoices = voices.filter(voice => 
+      voice.localService !== false && !voice.name.includes('Google')
+    );
+    const voicesToSearch = (preferLocal && systemVoices.length > 0) ? systemVoices : voices;
+
+    // Try to find exact matches first, then partial matches
+    for (const voiceLang of langModel.voiceLangs) {
+      // Try exact match
+      const exactMatch = voicesToSearch.find(voice => voice.lang === voiceLang);
+      if (exactMatch) {
+        console.log(`Found exact voice match for ${langCode}:`, exactMatch.name, exactMatch.lang);
+        return exactMatch;
+      }
+      
+      // Try partial match (e.g., 'fr' matches 'fr-FR')
+      const partialMatch = voicesToSearch.find(voice => voice.lang.startsWith(voiceLang));
+      if (partialMatch) {
+        console.log(`Found partial voice match for ${langCode}:`, partialMatch.name, partialMatch.lang);
+        return partialMatch;
+      }
+    }
+
+    return null;
+  };
+
+  // 🔹 Handle language selection change
+  const handleLanguageChange = (newLanguage: string) => {
+    setSelectedLanguage(newLanguage);
+    
+    // Auto-switch to appropriate voice if enabled
+    if (autoSwitchVoice && voices.length > 0) {
+      const languageVoice = findVoiceForLanguage(newLanguage);
+      if (languageVoice) {
+        setSelectedVoice(languageVoice.name);
+        console.log(`Auto-switched voice for ${newLanguage}:`, languageVoice.name);
+        toast({
+          title: "Voice Auto-Selected",
+          description: `Switched to ${languageVoice.name} for ${LANGUAGE_MODELS.find(l => l.code === newLanguage)?.name || newLanguage}`,
+        });
+      }
+    }
+  };
 
   // 🔹 Test if a voice works properly
   const testVoice = async (voice: SpeechSynthesisVoice): Promise<boolean> => {
@@ -289,6 +339,17 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     }
   }, [selectedVoice, voices]);
 
+  // 🔹 Auto-switch voice when processed text changes (after translation)
+  useEffect(() => {
+    if (processedText && activeProcessor === 'translate' && autoSwitchVoice && voices.length > 0) {
+      const languageVoice = findVoiceForLanguage(selectedLanguage);
+      if (languageVoice && languageVoice.name !== selectedVoice) {
+        setSelectedVoice(languageVoice.name);
+        console.log(`Auto-switched voice after translation to ${selectedLanguage}:`, languageVoice.name);
+      }
+    }
+  }, [processedText, activeProcessor, selectedLanguage, autoSwitchVoice, voices]);
+
   // 🔹 Helper function to get a valid voice
   const getValidVoice = () => {
     if (!voices.length) {
@@ -307,15 +368,12 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         } else if (voice.localService === false || voice.name.includes('Google')) {
           console.log('Selected voice is remote/Google, finding local alternative:', voice.name);
           // Try to find a local voice for the same language
-          const localVoiceForLang = voices.find(v => 
-            v.lang.startsWith(voice.lang.split('-')[0]) && 
-            v.localService !== false && 
-            !v.name.includes('Google')
-          );
-          if (localVoiceForLang) {
-            console.log('Found local alternative:', localVoiceForLang.name, localVoiceForLang.lang);
-            setSelectedVoice(localVoiceForLang.name);
-            return localVoiceForLang;
+          const voiceLangCode = voice.lang.split('-')[0];
+          const localVoice = findVoiceForLanguage(voiceLangCode, true);
+          if (localVoice && localVoice.name !== voice.name) {
+            console.log('Found local alternative:', localVoice.name, localVoice.lang);
+            setSelectedVoice(localVoice.name);
+            return localVoice;
           }
         }
         console.log('Using selected voice (remote fallback):', voice.name, voice.lang);
@@ -325,11 +383,17 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     }
 
     // If we have processed text (like translated text), try to match language
-    let languageHint = 'en';
+    let targetLanguage = 'en';
     if (processedText && activeProcessor === 'translate') {
-      const selectedLang = LANGUAGE_MODELS.find(l => l.code === selectedLanguage);
-      if (selectedLang) {
-        languageHint = selectedLang.code;
+      targetLanguage = selectedLanguage;
+      console.log(`Looking for voice for translated text in: ${targetLanguage}`);
+      
+      // Try to find the best voice for the target language
+      const languageVoice = findVoiceForLanguage(targetLanguage);
+      if (languageVoice) {
+        console.log('Found voice for translated text:', languageVoice.name, languageVoice.lang);
+        setSelectedVoice(languageVoice.name);
+        return languageVoice;
       }
     }
 
@@ -339,15 +403,13 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
     );
     const voicesToSearch = systemVoices.length > 0 ? systemVoices : voices;
 
-    // Try to find a voice for the language hint
-    const languageVoice = voicesToSearch.find(voice => 
-      voice.lang.startsWith(languageHint)
-    );
+    // Try to find voice for current target language
+    const languageVoice = findVoiceForLanguage(targetLanguage);
     
-    // Fallback to a good default voice
-    const englishVoice = voicesToSearch.find(voice => 
-      voice.lang.startsWith('en')
-    );
+    // Fallback to English voice
+    const englishVoice = findVoiceForLanguage('en');
+    
+    // Final fallback to any available voice
     const fallbackVoice = languageVoice || englishVoice || voicesToSearch[0] || voices[0];
     
     if (fallbackVoice) {
@@ -592,12 +654,26 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">
-                    Voice 
-                    <span className="text-xs text-muted-foreground ml-2">
-                      (✓ = Recommended, ⚠️ = May have issues)
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium">
+                      Voice 
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (✓ = Recommended, ⚠️ = May have issues)
+                      </span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="auto-switch"
+                        checked={autoSwitchVoice}
+                        onChange={(e) => setAutoSwitchVoice(e.target.checked)}
+                        className="h-3 w-3"
+                      />
+                      <label htmlFor="auto-switch" className="text-xs text-muted-foreground">
+                        Auto-switch for languages
+                      </label>
+                    </div>
+                  </div>
                   <Select 
                     value={selectedVoice} 
                     onValueChange={setSelectedVoice}
@@ -607,37 +683,69 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                       <SelectValue placeholder={voices.length === 0 ? "Loading voices..." : "Select a voice"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {voices
-                        .sort((a, b) => {
-                          // Sort by: 1. Local first, 2. English first, 3. Name alphabetically
-                          const aLocal = a.localService !== false && !a.name.includes('Google');
-                          const bLocal = b.localService !== false && !b.name.includes('Google');
-                          
-                          if (aLocal && !bLocal) return -1;
-                          if (!aLocal && bLocal) return 1;
-                          
-                          const aEng = a.lang.startsWith('en');
-                          const bEng = b.lang.startsWith('en');
-                          
-                          if (aEng && !bEng) return -1;
-                          if (!aEng && bEng) return 1;
-                          
-                          return a.name.localeCompare(b.name);
-                        })
-                        .map((voice) => {
+                      {(() => {
+                        // Group voices by language and type
+                        const groupedVoices = voices.reduce((acc, voice) => {
+                          const langCode = voice.lang.split('-')[0];
                           const isLocal = voice.localService !== false && !voice.name.includes('Google');
-                          const displayName = `${voice.name} (${voice.lang})${isLocal ? ' ✓' : ' ⚠️'}`;
                           
-                          return (
-                            <SelectItem
-                              key={`${voice.name}-${voice.lang}`}
-                              value={voice.name}
-                              className={isLocal ? '' : 'text-muted-foreground'}
-                            >
-                              {displayName}
-                            </SelectItem>
-                          );
-                        })}
+                          if (!acc[langCode]) {
+                            acc[langCode] = { local: [], remote: [] };
+                          }
+                          
+                          if (isLocal) {
+                            acc[langCode].local.push(voice);
+                          } else {
+                            acc[langCode].remote.push(voice);
+                          }
+                          
+                          return acc;
+                        }, {} as Record<string, { local: SpeechSynthesisVoice[], remote: SpeechSynthesisVoice[] }>);
+
+                        // Sort languages: current target language first, then English, then alphabetically
+                        const sortedLangs = Object.keys(groupedVoices).sort((a, b) => {
+                          if (a === selectedLanguage && b !== selectedLanguage) return -1;
+                          if (b === selectedLanguage && a !== selectedLanguage) return 1;
+                          if (a === 'en' && b !== 'en') return -1;
+                          if (b === 'en' && a !== 'en') return 1;
+                          return a.localeCompare(b);
+                        });
+
+                        return sortedLangs.flatMap(langCode => {
+                          const langName = LANGUAGE_MODELS.find(l => l.code === langCode)?.name || langCode.toUpperCase();
+                          const { local, remote } = groupedVoices[langCode];
+                          
+                          const items = [];
+                          
+                          // Add local voices first
+                          local.forEach(voice => {
+                            items.push(
+                              <SelectItem
+                                key={`${voice.name}-${voice.lang}`}
+                                value={voice.name}
+                                className=""
+                              >
+                                {`${voice.name} (${langName}) ✓`}
+                              </SelectItem>
+                            );
+                          });
+                          
+                          // Add remote voices
+                          remote.forEach(voice => {
+                            items.push(
+                              <SelectItem
+                                key={`${voice.name}-${voice.lang}`}
+                                value={voice.name}
+                                className="text-muted-foreground"
+                              >
+                                {`${voice.name} (${langName}) ⚠️`}
+                              </SelectItem>
+                            );
+                          });
+                          
+                          return items;
+                        });
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>
@@ -706,34 +814,57 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                   : 'Simplify Text'}
               </Button>
 
-              <div className="flex items-center gap-2">
-                <Select
-                  value={selectedLanguage}
-                  onValueChange={setSelectedLanguage}
-                  disabled={processing}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGE_MODELS.map(lang => (
-                      <SelectItem key={lang.code} value={lang.code}>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={selectedLanguage}
+                    onValueChange={handleLanguageChange}
+                    disabled={processing}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_MODELS.map(lang => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={() => processWithAI('translate')}
+                    disabled={processing}
+                    variant="outline"
+                    className="justify-start h-12"
+                  >
+                    <Languages className="h-4 w-4 mr-3" />
+                    {processing && activeProcessor === 'translate'
+                      ? 'Translating...'
+                      : 'Translate Text'}
+                  </Button>
+                </div>
+                
+                {/* Quick language buttons for common languages */}
+                <div className="flex flex-wrap gap-1">
+                  {['en', 'es', 'fr', 'de', 'it'].map(langCode => {
+                    const lang = LANGUAGE_MODELS.find(l => l.code === langCode);
+                    if (!lang) return null;
+                    
+                    return (
+                      <Button
+                        key={langCode}
+                        onClick={() => handleLanguageChange(langCode)}
+                        variant={selectedLanguage === langCode ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={processing}
+                      >
                         {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={() => processWithAI('translate')}
-                  disabled={processing}
-                  variant="outline"
-                  className="justify-start h-12"
-                >
-                  <Languages className="h-4 w-4 mr-3" />
-                  {processing && activeProcessor === 'translate'
-                    ? 'Translating...'
-                    : 'Translate Text'}
-                </Button>
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
 
               <Button
