@@ -28,7 +28,8 @@ export async function handler(event, context) {
       taskPrompt = processedText;
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // Use the correct Gemini model (gemini-pro or gemini-1.5-flash)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     // Add timeout to stay within Netlify limits (8 seconds)
     const controller = new AbortController();
@@ -58,11 +59,19 @@ export async function handler(event, context) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Gemini API error: ${errorText}`);
+        console.error('Gemini API error response:', errorText);
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('Gemini API response:', JSON.stringify(data, null, 2));
+      
       const result = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      if (!result) {
+        console.error('Empty result from Gemini API. Full response:', data);
+        throw new Error('Gemini returned empty response. The text may contain filtered content or be too long.');
+      }
 
       return {
         statusCode: 200,
