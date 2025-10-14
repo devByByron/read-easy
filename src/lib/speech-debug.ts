@@ -21,19 +21,38 @@ export const debugSpeechSynthesis = () => {
     
     if (voices.length > 0) {
       console.log('Voice details:');
+      const systemVoices = [];
+      const remoteVoices = [];
+      
       voices.forEach((voice, index) => {
-        console.log(`  ${index + 1}. ${voice.name} (${voice.lang}) - Default: ${voice.default}, Local: ${voice.localService}`);
+        const isLocal = voice.localService !== false && !voice.name.includes('Google');
+        const status = isLocal ? '✅ Recommended' : '⚠️ Remote/May have issues';
+        console.log(`  ${index + 1}. ${voice.name} (${voice.lang}) - ${status} [Default: ${voice.default}, Local: ${voice.localService}]`);
+        
+        if (isLocal) {
+          systemVoices.push(voice.name);
+        } else {
+          remoteVoices.push(voice.name);
+        }
       });
+      
+      console.log(`System/Local voices (${systemVoices.length}):`, systemVoices);
+      console.log(`Remote voices (${remoteVoices.length}):`, remoteVoices);
       
       // Group by language
       const voicesByLang = voices.reduce((acc, voice) => {
         const lang = voice.lang.split('-')[0];
         if (!acc[lang]) acc[lang] = [];
-        acc[lang].push(voice.name);
+        const isLocal = voice.localService !== false && !voice.name.includes('Google');
+        acc[lang].push(`${voice.name}${isLocal ? ' ✅' : ' ⚠️'}`);
         return acc;
       }, {} as Record<string, string[]>);
       
       console.log('Voices by language:', voicesByLang);
+      
+      if (systemVoices.length === 0) {
+        console.warn('⚠️ No local/system voices found! This may cause TTS issues.');
+      }
     } else {
       console.warn('No voices available - this might be the issue!');
     }

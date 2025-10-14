@@ -45,6 +45,48 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   const charIndexRef = useRef(0);
   const { toast } = useToast();
 
+  // 🔹 Test if a voice works properly
+  const testVoice = async (voice: SpeechSynthesisVoice): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const testUtterance = new SpeechSynthesisUtterance('test');
+        testUtterance.voice = voice;
+        testUtterance.volume = 0; // Silent test
+        testUtterance.rate = 2; // Fast test
+        
+        let resolved = false;
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve(false);
+          }
+        }, 1000);
+        
+        testUtterance.onstart = () => {
+          if (!resolved) {
+            resolved = true;
+            speechSynthesis.cancel();
+            clearTimeout(timeout);
+            resolve(true);
+          }
+        };
+        
+        testUtterance.onerror = () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            resolve(false);
+          }
+        };
+        
+        speechSynthesis.speak(testUtterance);
+      } catch (error) {
+        console.error('Voice test failed:', error);
+        resolve(false);
+      }
+    });
+  };
+
   // Check if speech synthesis is supported
   useEffect(() => {
     const isSupported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
@@ -78,25 +120,40 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
   useEffect(() => {
     if (!speechSupported) return;
 
-    const loadVoices = () => {
+    const loadVoices = async () => {
       const availableVoices = speechSynthesis.getVoices();
-      console.log('Available voices:', availableVoices.length, availableVoices.map(v => `${v.name} (${v.lang})`));
+      console.log('Available voices:', availableVoices.length, availableVoices.map(v => `${v.name} (${v.lang}) [Local: ${v.localService}]`));
       
       if (availableVoices.length > 0) {
-        setVoices(availableVoices);
+        // Filter and prioritize working voices
+        const workingVoices = availableVoices.filter(voice => {
+          // Prefer local/system voices as they're more reliable
+          if (voice.localService !== false && !voice.name.includes('Google')) {
+            return true;
+          }
+          // Include remote voices but with lower priority
+          return true;
+        });
+        
+        setVoices(workingVoices);
         
         // Only set default voice if none is selected
         if (!selectedVoice) {
-          // Try to find an English voice first, fallback to first available
-          const englishVoice = availableVoices.find(voice => 
-            voice.lang.startsWith('en') && !voice.name.includes('Google')
+          // Prioritize system/native voices over remote voices (Google, etc.)
+          const systemVoices = availableVoices.filter(voice => 
+            !voice.name.includes('Google') && !voice.name.includes('Remote')
           );
-          const fallbackVoice = availableVoices.find(voice => !voice.name.includes('Google')) || availableVoices[0];
-          const defaultVoice = englishVoice || fallbackVoice;
+          const allVoices = systemVoices.length > 0 ? systemVoices : availableVoices;
+          
+          // Try to find an English voice first, then fallback to first available
+          const englishVoice = allVoices.find(voice => 
+            voice.lang.startsWith('en')
+          );
+          const defaultVoice = englishVoice || allVoices[0];
           
           if (defaultVoice) {
             setSelectedVoice(defaultVoice.name);
-            console.log('Selected default voice:', defaultVoice.name, defaultVoice.lang);
+            console.log('Selected default voice:', defaultVoice.name, defaultVoice.lang, 'Local service:', defaultVoice.localService);
           }
         }
       }
@@ -161,6 +218,18 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         utterance.onerror = (event) => {
           console.error('Speech error during playback update:', event);
           setIsPlaying(false);
+          
+          // Auto-retry with a system voice if current voice failed
+          const currentVoice = utterance.voice;
+          if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
+            const systemVoice = voices.find(v => 
+              v.localService !== false && !v.name.includes('Google')
+            );
+            if (systemVoice) {
+              console.log('Auto-switching to system voice:', systemVoice.name);
+              setSelectedVoice(systemVoice.name);
+            }
+          }
         };
         
         utteranceRef.current = utterance;
@@ -197,6 +266,18 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
         utterance.onerror = (event) => {
           console.error('Speech error during voice change:', event);
           setIsPlaying(false);
+          
+          // Auto-retry with a system voice if current voice failed
+          const currentVoice = utterance.voice;
+          if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
+            const systemVoice = voices.find(v => 
+              v.localService !== false && !v.name.includes('Google')
+            );
+            if (systemVoice) {
+              console.log('Auto-switching to system voice:', systemVoice.name);
+              setSelectedVoice(systemVoice.name);
+            }
+          }
         };
         
         utteranceRef.current = utterance;
@@ -215,11 +296,29 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       return null;
     }
 
-    // Try to find the selected voice
+    // Try to find the selected voice and validate it works
     if (selectedVoice) {
       const voice = voices.find(v => v.name === selectedVoice);
       if (voice) {
-        console.log('Using selected voice:', voice.name, voice.lang);
+        // Prefer local/system voices over remote ones for reliability
+        if (voice.localService !== false && !voice.name.includes('Google')) {
+          console.log('Using selected voice (system):', voice.name, voice.lang, 'Local:', voice.localService);
+          return voice;
+        } else if (voice.localService === false || voice.name.includes('Google')) {
+          console.log('Selected voice is remote/Google, finding local alternative:', voice.name);
+          // Try to find a local voice for the same language
+          const localVoiceForLang = voices.find(v => 
+            v.lang.startsWith(voice.lang.split('-')[0]) && 
+            v.localService !== false && 
+            !v.name.includes('Google')
+          );
+          if (localVoiceForLang) {
+            console.log('Found local alternative:', localVoiceForLang.name, localVoiceForLang.lang);
+            setSelectedVoice(localVoiceForLang.name);
+            return localVoiceForLang;
+          }
+        }
+        console.log('Using selected voice (remote fallback):', voice.name, voice.lang);
         return voice;
       }
       console.log('Selected voice not found:', selectedVoice);
@@ -234,20 +333,25 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       }
     }
 
+    // Prioritize system voices over remote voices
+    const systemVoices = voices.filter(voice => 
+      voice.localService !== false && !voice.name.includes('Google')
+    );
+    const voicesToSearch = systemVoices.length > 0 ? systemVoices : voices;
+
     // Try to find a voice for the language hint
-    const languageVoice = voices.find(voice => 
-      voice.lang.startsWith(languageHint) && !voice.name.includes('Google')
+    const languageVoice = voicesToSearch.find(voice => 
+      voice.lang.startsWith(languageHint)
     );
     
     // Fallback to a good default voice
-    const englishVoice = voices.find(voice => 
-      voice.lang.startsWith('en') && !voice.name.includes('Google')
+    const englishVoice = voicesToSearch.find(voice => 
+      voice.lang.startsWith('en')
     );
-    const systemVoice = voices.find(voice => !voice.name.includes('Google'));
-    const fallbackVoice = languageVoice || englishVoice || systemVoice || voices[0];
+    const fallbackVoice = languageVoice || englishVoice || voicesToSearch[0] || voices[0];
     
     if (fallbackVoice) {
-      console.log('Using fallback voice:', fallbackVoice.name, fallbackVoice.lang);
+      console.log('Using fallback voice:', fallbackVoice.name, fallbackVoice.lang, 'Local:', fallbackVoice.localService);
       // Update selected voice to the working one
       setSelectedVoice(fallbackVoice.name);
     }
@@ -305,9 +409,32 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
       utterance.onerror = (event) => {
         console.error('Speech error:', event);
         setIsPlaying(false);
+        
+        // Try to recover by switching to a different voice
+        const currentVoice = utterance.voice;
+        if (currentVoice && (currentVoice.name.includes('Google') || currentVoice.localService === false)) {
+          console.log('Retrying with system voice due to error with remote voice:', currentVoice.name);
+          
+          // Find a local system voice
+          const systemVoice = voices.find(v => 
+            v.localService !== false && 
+            !v.name.includes('Google') && 
+            v.lang.startsWith('en')
+          );
+          
+          if (systemVoice && systemVoice.name !== currentVoice.name) {
+            setSelectedVoice(systemVoice.name);
+            toast({
+              title: "Voice Switched",
+              description: `Switched to ${systemVoice.name} due to compatibility issues.`,
+            });
+            return;
+          }
+        }
+        
         toast({
           title: "Speech Error",
-          description: "There was an error with text-to-speech. Please try again.",
+          description: "There was an error with text-to-speech. Try selecting a different voice.",
           variant: "destructive"
         });
       };
@@ -465,7 +592,12 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Voice</label>
+                  <label className="text-sm font-medium mb-2 block">
+                    Voice 
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (✓ = Recommended, ⚠️ = May have issues)
+                    </span>
+                  </label>
                   <Select 
                     value={selectedVoice} 
                     onValueChange={setSelectedVoice}
@@ -475,14 +607,37 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
                       <SelectValue placeholder={voices.length === 0 ? "Loading voices..." : "Select a voice"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {voices.map((voice) => (
-                        <SelectItem
-                          key={`${voice.name}-${voice.lang}`}
-                          value={voice.name}
-                        >
-                          {voice.name} ({voice.lang})
-                        </SelectItem>
-                      ))}
+                      {voices
+                        .sort((a, b) => {
+                          // Sort by: 1. Local first, 2. English first, 3. Name alphabetically
+                          const aLocal = a.localService !== false && !a.name.includes('Google');
+                          const bLocal = b.localService !== false && !b.name.includes('Google');
+                          
+                          if (aLocal && !bLocal) return -1;
+                          if (!aLocal && bLocal) return 1;
+                          
+                          const aEng = a.lang.startsWith('en');
+                          const bEng = b.lang.startsWith('en');
+                          
+                          if (aEng && !bEng) return -1;
+                          if (!aEng && bEng) return 1;
+                          
+                          return a.name.localeCompare(b.name);
+                        })
+                        .map((voice) => {
+                          const isLocal = voice.localService !== false && !voice.name.includes('Google');
+                          const displayName = `${voice.name} (${voice.lang})${isLocal ? ' ✓' : ' ⚠️'}`;
+                          
+                          return (
+                            <SelectItem
+                              key={`${voice.name}-${voice.lang}`}
+                              value={voice.name}
+                              className={isLocal ? '' : 'text-muted-foreground'}
+                            >
+                              {displayName}
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
                 </div>
