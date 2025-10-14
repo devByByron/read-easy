@@ -28,8 +28,8 @@ export async function handler(event, context) {
       taskPrompt = processedText;
     }
 
-    // Use the correct Gemini model (gemini-pro or gemini-1.5-flash)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // Use the stable Gemini Pro model with v1 endpoint
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
 
     // Add timeout to stay within Netlify limits (8 seconds)
     const controller = new AbortController();
