@@ -620,15 +620,15 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 
       let data;
       
-      // Check if running locally (development) or on Netlify (production)
+      // Check if running locally (development) or on Vercel (production)
       const isLocalDev = import.meta.env.VITE_GEMINI_API_KEY && import.meta.env.DEV;
       
       if (isLocalDev) {
         // Use local Gemini API service
         data = await callGeminiAPI(type, inputText, langName);
       } else {
-        // Use Netlify function
-        const response = await fetch("/.netlify/functions/gemini", {
+        // Use Vercel serverless function
+        const response = await fetch("/api/gemini", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type, text: inputText, langModel: langName }),
