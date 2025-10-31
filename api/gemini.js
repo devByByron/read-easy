@@ -69,8 +69,8 @@ export default async function handler(req, res) {
 			taskPrompt = processedText;
 		}
 
-		// Use Gemini 1.5 Flash - best balance of speed and reliability
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+		// Use Gemini Pro (free tier) - reliable for text processing
+		const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
 
 		// Add timeout to stay within Vercel limits (10 seconds for Hobby plan)
 		const controller = new AbortController();
