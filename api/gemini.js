@@ -1,11 +1,11 @@
 export default async function handler(req, res) {
 	// Set CORS headers
-	res.setHeader('Access-Control-Allow-Origin', '*');
-	res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	res.setHeader("Access-Control-Allow-Origin", "*");
+	res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
 	// Handle OPTIONS request for CORS
-	if (req.method === 'OPTIONS') {
+	if (req.method === "OPTIONS") {
 		return res.status(200).end();
 	}
 
@@ -25,24 +25,29 @@ export default async function handler(req, res) {
 		const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 		if (!GEMINI_API_KEY) {
 			console.error("Missing GEMINI_API_KEY environment variable");
-			return res.status(500).json({ 
-				error: "Server configuration error: Missing API key. Please contact administrator." 
+			return res.status(500).json({
+				error: "Server configuration error: Missing API key. Please contact administrator.",
 			});
 		}
 
 		const { type, text, langModel } = req.body;
-		
-		console.log("Request received:", { 
-			type, 
+
+		console.log("Request received:", {
+			type,
 			textLength: text?.length,
 			langModel,
-			bodyKeys: Object.keys(req.body || {})
+			bodyKeys: Object.keys(req.body || {}),
 		});
-		
+
 		if (!type || !text) {
-			console.error("Missing required parameters:", { type, textLength: text?.length });
-			return res.status(400).json({ 
-				error: `Missing required parameters: ${!type ? 'type' : ''} ${!text ? 'text' : ''}`.trim()
+			console.error("Missing required parameters:", {
+				type,
+				textLength: text?.length,
+			});
+			return res.status(400).json({
+				error: `Missing required parameters: ${!type ? "type" : ""} ${
+					!text ? "text" : ""
+				}`.trim(),
 			});
 		}
 
@@ -141,11 +146,14 @@ export default async function handler(req, res) {
 			name: error.name,
 			stack: error.stack,
 		});
-		
+
 		// Return detailed error for debugging
 		return res.status(500).json({
 			error: error.message || "An error occurred processing your request",
-			details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+			details:
+				process.env.NODE_ENV === "development"
+					? error.stack
+					: undefined,
 		});
 	}
 }
