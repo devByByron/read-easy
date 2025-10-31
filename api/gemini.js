@@ -1,16 +1,50 @@
 export default async function handler(req, res) {
+	// Set CORS headers
+	res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+	// Handle OPTIONS request for CORS
+	if (req.method === 'OPTIONS') {
+		return res.status(200).end();
+	}
+
 	// Only allow POST requests
 	if (req.method !== "POST") {
 		return res.status(405).json({ error: "Method not allowed" });
 	}
 
+	// Log environment for debugging (only in production)
+	console.log("Environment check:", {
+		hasGeminiKey: !!process.env.GEMINI_API_KEY,
+		keyLength: process.env.GEMINI_API_KEY?.length,
+		nodeEnv: process.env.NODE_ENV,
+	});
+
 	try {
 		const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 		if (!GEMINI_API_KEY) {
-			throw new Error("Missing GEMINI_API_KEY environment variable");
+			console.error("Missing GEMINI_API_KEY environment variable");
+			return res.status(500).json({ 
+				error: "Server configuration error: Missing API key. Please contact administrator." 
+			});
 		}
 
 		const { type, text, langModel } = req.body;
+		
+		console.log("Request received:", { 
+			type, 
+			textLength: text?.length,
+			langModel,
+			bodyKeys: Object.keys(req.body || {})
+		});
+		
+		if (!type || !text) {
+			console.error("Missing required parameters:", { type, textLength: text?.length });
+			return res.status(400).json({ 
+				error: `Missing required parameters: ${!type ? 'type' : ''} ${!text ? 'text' : ''}`.trim()
+			});
+		}
 
 		// Limit text size for faster processing to avoid Vercel timeouts
 		const MAX_TEXT_LENGTH = type === "translate" ? 3000 : 4000;
@@ -35,8 +69,8 @@ export default async function handler(req, res) {
 			taskPrompt = processedText;
 		}
 
-		// Use Gemini 1.5 Flash (latest stable) - best balance of speed and reliability
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+		// Use Gemini 1.5 Flash - best balance of speed and reliability
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 		// Add timeout to stay within Vercel limits (10 seconds for Hobby plan)
 		const controller = new AbortController();
@@ -93,16 +127,25 @@ export default async function handler(req, res) {
 			clearTimeout(timeoutId);
 
 			if (fetchError.name === "AbortError") {
+				console.error("Request timeout occurred");
 				throw new Error(
 					"Request timeout. Text is too long. Try with shorter text or use summarize first."
 				);
 			}
+			console.error("Fetch error:", fetchError);
 			throw fetchError;
 		}
 	} catch (error) {
-		console.error("Gemini function error:", error);
+		console.error("Gemini function error:", {
+			message: error.message,
+			name: error.name,
+			stack: error.stack,
+		});
+		
+		// Return detailed error for debugging
 		return res.status(500).json({
 			error: error.message || "An error occurred processing your request",
+			details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
 		});
 	}
 }

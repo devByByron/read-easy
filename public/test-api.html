@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error {
+            color: red;
+            background: #fee;
+        }
+        .success {
+            color: green;
+            background: #efe;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Endpoint Test</h1>
+    <p>Test your Vercel API endpoints to diagnose issues.</p>
+    
+    <div>
+        <button onclick="testGeminiAPI()">Test Gemini API</button>
+        <button onclick="testHuggingFaceAPI()">Test HuggingFace API</button>
+    </div>
+
+    <div id="result">Click a button to test the API...</div>
+
+    <script>
+        async function testGeminiAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Testing Gemini API...';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch('/api/gemini', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: 'summarize',
+                        text: 'This is a test text to check if the Gemini API is working correctly. The API should summarize this text and return a shorter version.',
+                        langModel: '',
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = `✅ Success!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = `❌ Error!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `❌ Network Error!\n\n${error.message}\n\n${error.stack}`;
+            }
+        }
+
+        async function testHuggingFaceAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Testing HuggingFace API...';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch('/api/huggingface', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: 'summarize',
+                        text: 'This is a test text.',
+                        selectedLanguage: 'English',
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = `✅ Success!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = `❌ Error!\n\nStatus: ${response.status}\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `❌ Network Error!\n\n${error.message}\n\n${error.stack}`;
+            }
+        }
+    </script>
+</body>
+</html>

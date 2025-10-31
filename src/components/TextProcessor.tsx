@@ -824,7 +824,8 @@ const TextProcessor = ({ extractedText, fileName }: TextProcessorProps) => {
 				});
 
 				if (!response.ok) {
-					throw new Error(`Function error: ${response.statusText}`);
+					const errorData = await response.json().catch(() => ({ error: response.statusText }));
+					throw new Error(errorData.error || `Function error: ${response.status} ${response.statusText}`);
 				}
 
 				data = await response.json();
